@@ -114,7 +114,8 @@ def load_students():
             "id": 1, "name": "Дарія Костур", "initials": "ДК",
             "color_bg": "#EEEDFE", "color_txt": "#3C3489",
             "goal": "Школа · 6 клас (Математика)", "level": "Середній",
-            "progress": 65, "lessons_total": 8, "rate": 350,
+            "progress": 65, "lessons_total": 8, "rate": 150,
+            "schedule": "Понеділок, П'ятниця",
             "paid_lessons": 2, "phone": "+380 99 123-45-67",
             "email": "daria.k@ukr.net",
             "notes": "Повторення звичайних дробів, підготовка до контрольної роботи.",
@@ -125,7 +126,8 @@ def load_students():
             "id": 2, "name": "Анастасія", "initials": "АН",
             "color_bg": "#E1F5EE", "color_txt": "#085041",
             "goal": "Технікум (Польща) · Математика", "level": "Високий",
-            "progress": 82, "lessons_total": 14, "rate": 500,
+            "progress": 82, "lessons_total": 14, "rate": 300,
+            "schedule": "Вівторок, Четвер, Субота",
             "paid_lessons": 4, "phone": "+380 67 987-65-43",
             "email": "anastasia.pl@gmail.com",
             "notes": "Вища математика, польська термінологія. Акцент на функції та тригонометрію.",
@@ -136,7 +138,8 @@ def load_students():
             "id": 3, "name": "Макар", "initials": "МА",
             "color_bg": "#FAEEDA", "color_txt": "#633806",
             "goal": "Програмування · Python", "level": "Початковий",
-            "progress": 45, "lessons_total": 6, "rate": 450,
+            "progress": 45, "lessons_total": 6, "rate": 350,
+            "schedule": "Субота, Неділя",
             "paid_lessons": 1, "phone": "+380 63 111-22-33",
             "email": "makar.dev@gmail.com",
             "notes": "Основи Python. Працюємо над проєктами (Аналізатор та Шляхошукач).",
@@ -229,7 +232,7 @@ if "Дашборд" in page:
     c2.metric("👥 Активні учні", str(len(st.session_state.students)), "в базі")
     c3.metric("📋 ДЗ на перевірку", "3", "1 нове")
     total_income_projected = sum(s["lessons_total"] * s["rate"] for s in st.session_state.students)
-    c4.metric("💰 Дохід (травень)", f"{total_income_projected} ₴", "прогноз")
+    c4.metric("💰 Дохід (травень)", f"{total_income_projected} ₴", "розрахунковий")
 
     st.markdown("")
 
@@ -347,7 +350,10 @@ elif "Учні" in page:
                 goal = c4.text_input("Мета / Напрямок навчання")
                 c5, c6 = st.columns(2)
                 level = c5.selectbox("Рівень", ["Початковий", "Середній", "Високий"])
-                rate = c6.number_input("Вартість уроку (грн)", value=400, step=50)
+                rate = c6.number_input("Вартість уроку (грн)", value=300, step=50)
+                
+                c7, c8 = st.columns(2)
+                schedule = c7.text_input("Дні уроків (напр., Пн, Пт)", placeholder="Введіть дні...")
                 notes = st.text_area("Нотатки")
                 
                 submitted = st.form_submit_button("Зберегти учня", type="primary")
@@ -361,6 +367,7 @@ elif "Учні" in page:
                         "id": new_id, "name": name, "initials": initials,
                         "color_bg": bg, "color_txt": txt, "goal": goal, "level": level,
                         "progress": 0, "lessons_total": 0, "rate": rate,
+                        "schedule": schedule,
                         "paid_lessons": 0, "phone": phone, "email": email, "notes": notes,
                         "topics": {"Основи": 0},
                         "test_scores": [],
@@ -410,7 +417,10 @@ elif "Учні" in page:
                     <div style='background:#f0eeea;height:5px;border-radius:3px;overflow:hidden'>
                         <div style='width:{bar_w}%;height:100%;background:#534AB7;border-radius:3px'></div>
                     </div>
-                    <div style='font-size:11px;color:#aaa;margin-top:6px'>{s["lessons_total"]} уроків · {s["rate"]} грн/урок</div>
+                    <div style='font-size:11px;color:#aaa;margin-top:6px'>
+                        {s["lessons_total"]} уроків · {s["rate"]} грн/урок<br>
+                        🗓 {s.get("schedule", "Дні не вказано")}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 if col.button("Детальніше", key=f"btn_{s['id']}", use_container_width=True):
@@ -432,6 +442,7 @@ elif "Учні" in page:
                 c1.markdown(f"**Рівень:** {s['level']}")
                 c2.markdown(f"**Уроків проведено:** {s['lessons_total']}")
                 c2.markdown(f"**Вартість уроку:** {s['rate']} грн")
+                c2.markdown(f"**Розклад:** {s.get('schedule', 'Не вказано')}")
                 c2.markdown(f"**Оплачено наперед:** {s['paid_lessons']} уроків")
                 st.markdown(f"**Нотатки викладача:**")
                 new_note = st.text_area("", value=s["notes"], key=f"note_{s['id']}", height=80)
@@ -511,7 +522,10 @@ elif "Учні" in page:
                     e_name = st.text_input("Ім'я", value=s["name"])
                     e_goal = st.text_input("Мета/Напрямок", value=s["goal"])
                     e_phone = st.text_input("Телефон", value=s["phone"])
-                    e_rate = st.number_input("Вартість", value=s["rate"])
+                    
+                    e_c1, e_c2 = st.columns(2)
+                    e_schedule = e_c1.text_input("Дні уроків (Розклад)", value=s.get("schedule", ""))
+                    e_rate = e_c2.number_input("Вартість", value=s["rate"])
                     
                     if st.form_submit_button("💾 Зберегти зміни"):
                         for idx, student in enumerate(st.session_state.students):
@@ -519,6 +533,7 @@ elif "Учні" in page:
                                 st.session_state.students[idx]["name"] = e_name
                                 st.session_state.students[idx]["goal"] = e_goal
                                 st.session_state.students[idx]["phone"] = e_phone
+                                st.session_state.students[idx]["schedule"] = e_schedule
                                 st.session_state.students[idx]["rate"] = e_rate
                                 break
                         st.session_state[f"edit_mode_{s['id']}"] = False
