@@ -185,11 +185,13 @@ if "show_add_student" not in st.session_state:
     st.session_state.show_add_student = False
 if "test_questions" not in st.session_state:
     st.session_state.test_questions = []
+
+# Ініціалізація трекера завдань (додали id для відстеження кліків)
 if "hw_items" not in st.session_state:
     st.session_state.hw_items = [
-        {"student": "Анастасія", "task": "Дослідити функцію y=x^3-3x+2", "due": "сьогодні", "status": "В процесі"},
-        {"student": "Макар", "task": "Написати скрипт «Аналізатор»", "due": "завтра", "status": "Здано"},
-        {"student": "Дарія Костур", "task": "Задачі на відсотки № 15-20", "due": "пт", "status": "Не розпочато"},
+        {"id": 1, "student": "Анастасія", "task": "Дослідити функцію y=x^3-3x+2", "due": "2026-05-10", "status": "В процесі"},
+        {"id": 2, "student": "Макар", "task": "Написати скрипт «Аналізатор»", "due": "2026-05-12", "status": "Здано"},
+        {"id": 3, "student": "Дарія Костур", "task": "Задачі на відсотки № 15-20", "due": "2026-05-14", "status": "Не розпочато"},
     ]
 
 
@@ -226,11 +228,14 @@ with st.sidebar:
 if "Дашборд" in page:
     st.markdown("## Дашборд")
 
+    # Підрахунок ДЗ, які зараз "на перевірці" або "в процесі"
+    active_hws = sum(1 for hw in st.session_state.hw_items if hw["status"] != "Здано")
+
     # Метрики
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("📅 Уроки сьогодні", "3", "1 завершено")
     c2.metric("👥 Активні учні", str(len(st.session_state.students)), "в базі")
-    c3.metric("📋 ДЗ на перевірку", "3", "1 нове")
+    c3.metric("📋 Активні ДЗ", str(active_hws), "чекають виконання")
     total_income_projected = sum(s["lessons_total"] * s["rate"] for s in st.session_state.students)
     c4.metric("💰 Дохід (травень)", f"{total_income_projected} ₴", "розрахунковий")
 
@@ -278,15 +283,73 @@ if "Дашборд" in page:
             """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Домашні завдання
-    st.markdown("### 📋 Домашні завдання")
-    hw_df = pd.DataFrame(st.session_state.hw_items)
-    status_colors = {"Здано": "🟢", "В процесі": "🟡", "Не розпочато": "🔴"}
-    hw_df["Статус"] = hw_df["status"].map(lambda s: f"{status_colors.get(s,'⚪')} {s}")
-    hw_df = hw_df.rename(columns={"student": "Учень", "task": "Завдання", "due": "Здати до"})
-    st.dataframe(hw_df[["Учень", "Завдання", "Здати до", "Статус"]], use_container_width=True, hide_index=True)
+    # ----------------------------------------------------
+    # ТРЕКЕР ДОМАШНІХ ЗАВДАНЬ (Task Manager)
+    # ----------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 📋 Трекер домашніх завдань")
 
+    # Форма додавання нового ДЗ
+    with st.expander("➕ Призначити нове ДЗ"):
+        with st.form("add_hw_form"):
+            c1_hw, c2_hw, c3_hw = st.columns([2, 3, 2])
+            hw_student = c1_hw.selectbox("Учень", [s["name"] for s in st.session_state.students])
+            hw_task = c2_hw.text_input("Опис завдання", placeholder="Наприклад: Параграф 12, задачі 1-10")
+            hw_due = c3_hw.date_input("Дедлайн", value=date.today() + timedelta(days=2))
+            
+            if st.form_submit_button("Додати завдання", type="primary"):
+                if hw_task.strip():
+                    new_id = max([hw["id"] for hw in st.session_state.hw_items] + [0]) + 1
+                    st.session_state.hw_items.append({
+                        "id": new_id,
+                        "student": hw_student,
+                        "task": hw_task,
+                        "due": hw_due.strftime("%Y-%m-%d"),
+                        "status": "Не розпочато"
+                    })
+                    st.success("✅ Завдання успішно додано!")
+                    st.rerun()
+
+    # Інтерактивний список завдань
+    st.markdown("<br>", unsafe_allow_html=True)
+    status_colors = {"Здано": "🟢", "В процесі": "🟡", "Не розпочато": "🔴"}
+    next_status = {"Не розпочато": "В процесі", "В процесі": "Здано", "Здано": "Не розпочато"}
+
+    if not st.session_state.hw_items:
+        st.info("Немає активних завдань.")
+    else:
+        # Заголовок таблиці
+        col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
+        col1.markdown("**Учень**")
+        col2.markdown("**Завдання**")
+        col3.markdown("**Дедлайн**")
+        col4.markdown("**Статус**")
+        col5.markdown("**Дія**")
+        st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
+
+        # Рядки таблиці
+        for i, hw in enumerate(st.session_state.hw_items):
+            col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
+            col1.markdown(f"<div style='padding-top:8px;'>{hw['student']}</div>", unsafe_allow_html=True)
+            col2.markdown(f"<div style='padding-top:8px;'>{hw['task']}</div>", unsafe_allow_html=True)
+            col3.markdown(f"<div style='padding-top:8px;'>⏳ {hw['due']}</div>", unsafe_allow_html=True)
+            col4.markdown(f"<div style='padding-top:8px;'>{status_colors[hw['status']]} {hw['status']}</div>", unsafe_allow_html=True)
+
+            btn_col1, btn_col2 = col5.columns([1, 1])
+            # Кнопка перемикання статусу
+            if btn_col1.button("🔄", key=f"toggle_hw_{hw['id']}", help="Змінити статус"):
+                st.session_state.hw_items[i]["status"] = next_status[hw["status"]]
+                st.rerun()
+            # Кнопка видалення завдання
+            if btn_col2.button("❌", key=f"del_hw_{hw['id']}", help="Видалити завдання"):
+                st.session_state.hw_items = [item for item in st.session_state.hw_items if item["id"] != hw["id"]]
+                st.rerun()
+            
+            st.markdown("<hr style='margin: 0.2rem 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
+
+    # ----------------------------------------------------
     # Мінідіаграма прогресу учнів
+    # ----------------------------------------------------
     st.markdown("### 📈 Прогрес учнів")
     students = st.session_state.students
     if students:
@@ -750,7 +813,11 @@ elif "Аналітика" in page:
         avg_progress = round(sum(s["progress"] for s in students) / len(students)) if students else 0
         c1.metric("Середній прогрес", f"{avg_progress}%", "+5% за місяць")
         c2.metric("Відвідуваність", "94%", "+2%")
-        c3.metric("Тестів здано", "23", "цього місяця")
+        
+        # Динамічний підрахунок зданих ДЗ для верхньої метрики
+        total_hw_done = sum(1 for hw in st.session_state.hw_items if hw["status"] == "Здано")
+        c3.metric("Завдань здано", str(total_hw_done), "всього")
+        
         c4.metric("Сер. бал (прогноз)", "158", "+12 за місяць")
 
         st.markdown("---")
@@ -858,11 +925,22 @@ elif "Аналітика" in page:
 
         # Статистика залученості
         st.markdown("---")
-        st.markdown("**Статистика залученості учнів (травень)**")
+        st.markdown("**Статистика залученості учнів**")
+        
+        # Автоматичний підрахунок "Здано ДЗ (%)" для кожного учня на основі Трекера
+        zdano_pct_list = []
+        for st_iter in students:
+            student_hws = [hw for hw in st.session_state.hw_items if hw["student"] == st_iter["name"]]
+            if not student_hws:
+                zdano_pct_list.append(0) # Або 100, якщо ДЗ ще не призначали
+            else:
+                done_hws = [hw for hw in student_hws if hw["status"] == "Здано"]
+                zdano_pct_list.append(int((len(done_hws) / len(student_hws)) * 100))
+
         engage_data = {
             "Учень": [st_iter["name"] for st_iter in students],
             "Уроків": [st_iter["lessons_total"] for st_iter in students],
-            "Здано ДЗ (%)": [random.randint(60, 100) for _ in students],
+            "Здано ДЗ (%)": zdano_pct_list,  # Дані тепер підтягуються динамічно!
             "Сер. час ДЗ (хв)": [random.randint(20, 75) for _ in students],
             "Бал тесту (%)": [st_iter["progress"] for st_iter in students],
         }
