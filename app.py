@@ -11,6 +11,14 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 import random
 import json
+import os
+from pathlib import Path
+
+# ─────────────────────────────────────────
+# Ініціалізація папки для завантажень
+# ─────────────────────────────────────────
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─────────────────────────────────────────
 # Конфігурація сторінки
@@ -33,12 +41,7 @@ st.markdown("""
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { font-size: 13px; }
 
 /* Метрики */
-[data-testid="metric-container"] {
-    background: #f0eeea;
-    border-radius: 10px;
-    padding: 12px 16px;
-    border: none;
-}
+[data-testid="metric-container"] { background: #f0eeea; border-radius: 10px; padding: 12px 16px; border: none; }
 [data-testid="metric-container"] label { font-size: 12px !important; color: #888; }
 [data-testid="metric-container"] [data-testid="stMetricValue"] { font-size: 24px !important; }
 
@@ -80,17 +83,12 @@ st.markdown("""
 .hm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; margin-top: 6px; }
 .hm-cell { border-radius: 6px; padding: 8px 6px; text-align: center; font-size: 11px; font-weight: 500; cursor: pointer; }
 
-/* Бібліотека */
-.lib-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
-.lib-item { background:white; border:0.5px solid #e8e6e0; border-radius:8px; padding:12px; cursor:pointer; transition:border-color .15s; }
+/* Бібліотека (Картки) */
+.lib-item { background:white; border:0.5px solid #e8e6e0; border-radius:8px; padding:12px; transition:border-color .15s; margin-bottom: 8px; }
 .lib-item:hover { border-color:#534AB7; }
 .lib-icon { font-size:22px; margin-bottom:5px; }
-.lib-name { font-size:12px; font-weight:500; color:#1a1a1a; }
+.lib-name { font-size:12px; font-weight:500; color:#1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-meta { font-size:11px; color:#aaa; margin-top:2px; }
-
-/* Фінанси */
-.finance-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:0.5px solid #f0eeea; font-size:13px; }
-.finance-row:last-child { border-bottom:none; }
 
 /* Кнопки навігації в sidebar */
 div[data-testid="stRadio"] > div { gap: 4px; }
@@ -98,8 +96,8 @@ div[data-testid="stRadio"] label { background: transparent; border-radius: 6px; 
 div[data-testid="stRadio"] label:hover { background: #f0eeea; }
 
 /* Кнопки streamlit */
-.stButton > button { border-radius: 8px; font-size: 12px; border: 0.5px solid #d0cec8; }
-.stButton > button:hover { border-color: #534AB7; color: #534AB7; }
+.stButton > button, .stDownloadButton > button { border-radius: 8px; font-size: 12px; border: 0.5px solid #d0cec8; }
+.stButton > button:hover, .stDownloadButton > button:hover { border-color: #534AB7; color: #534AB7; }
 div[data-testid="stExpander"] { border: 0.5px solid #e8e6e0 !important; border-radius: 10px !important; background: white; }
 </style>
 """, unsafe_allow_html=True)
@@ -162,16 +160,37 @@ def load_notifications():
         {"icon": "💰", "style": "background:#FAEEDA;color:#854F0B", "text": "<strong>Дарія Костур</strong> — залишився 1 оплачений урок", "time": "Вчора"},
     ]
 
-def load_library():
-    return [
-        {"icon": "📄", "name": "НМТ 2024 — збірник завдань", "meta": "PDF · 48 стор.", "type": "pdf"},
-        {"icon": "📊", "name": "Тригонометрія — презентація", "meta": "PPT · 32 слайди", "type": "ppt"},
-        {"icon": "✅", "name": "Тест: Інтеграли", "meta": "Квіз · 15 питань", "type": "quiz"},
-        {"icon": "📄", "name": "Стереометрія", "meta": "PDF · 24 стор.", "type": "pdf"},
-        {"icon": "✅", "name": "Тест: Рівняння", "meta": "Квіз · 20 питань", "type": "quiz"},
-        {"icon": "🖼️", "name": "Геометричні моделі", "meta": "Зображення · 18 шт.", "type": "img"},
-        {"icon": "💻", "name": "Python: Основи синтаксису", "meta": "PPT · 20 слайдів", "type": "ppt"},
+def get_dynamic_library():
+    # Базові/Віртуальні матеріали (тести)
+    items = [
+        {"icon": "✅", "name": "Тест: Інтеграли", "meta": "Квіз · 15 питань", "type": "quiz", "real_file": False},
+        {"icon": "✅", "name": "Тест: Рівняння", "meta": "Квіз · 20 питань", "type": "quiz", "real_file": False},
     ]
+    
+    # Динамічне читання реальних файлів з папки uploads/
+    for filepath in UPLOAD_DIR.iterdir():
+        if filepath.is_file():
+            ext = filepath.suffix.lower().replace(".", "")
+            size_kb = filepath.stat().st_size / 1024
+            
+            # Визначення іконки
+            if ext in ['pdf']: icon = "📄"
+            elif ext in ['ppt', 'pptx']: icon = "📊"
+            elif ext in ['jpg', 'png', 'jpeg']: icon = "🖼️"
+            elif ext in ['zip', 'rar']: icon = "📦"
+            elif ext in ['doc', 'docx']: icon = "📝"
+            elif ext in ['py', 'js', 'html']: icon = "💻"
+            else: icon = "📁"
+            
+            items.append({
+                "icon": icon,
+                "name": filepath.name,
+                "meta": f"{ext.upper() if ext else 'FILE'} · {size_kb:.1f} KB",
+                "type": "file",
+                "real_file": True,
+                "path": filepath
+            })
+    return items
 
 
 # ─────────────────────────────────────────
@@ -186,7 +205,6 @@ if "show_add_student" not in st.session_state:
 if "test_questions" not in st.session_state:
     st.session_state.test_questions = []
 
-# Ініціалізація трекера завдань (додали id для відстеження кліків)
 if "hw_items" not in st.session_state:
     st.session_state.hw_items = [
         {"id": 1, "student": "Анастасія", "task": "Дослідити функцію y=x^3-3x+2", "due": "2026-05-10", "status": "В процесі"},
@@ -228,10 +246,8 @@ with st.sidebar:
 if "Дашборд" in page:
     st.markdown("## Дашборд")
 
-    # Підрахунок ДЗ, які зараз "на перевірці" або "в процесі"
     active_hws = sum(1 for hw in st.session_state.hw_items if hw["status"] != "Здано")
 
-    # Метрики
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("📅 Уроки сьогодні", "3", "1 завершено")
     c2.metric("👥 Активні учні", str(len(st.session_state.students)), "в базі")
@@ -243,7 +259,6 @@ if "Дашборд" in page:
 
     col_left, col_right = st.columns(2)
 
-    # Розклад
     with col_left:
         st.markdown("<div class='card'><div class='card-title'>Розклад на сьогодні</div>", unsafe_allow_html=True)
         for lesson in load_schedule():
@@ -268,7 +283,6 @@ if "Дашборд" in page:
             """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Сповіщення
     with col_right:
         st.markdown("<div class='card'><div class='card-title'>Сповіщення</div>", unsafe_allow_html=True)
         for n in load_notifications():
@@ -283,13 +297,9 @@ if "Дашборд" in page:
             """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ----------------------------------------------------
-    # ТРЕКЕР ДОМАШНІХ ЗАВДАНЬ (Task Manager)
-    # ----------------------------------------------------
     st.markdown("---")
     st.markdown("### 📋 Трекер домашніх завдань")
 
-    # Форма додавання нового ДЗ
     with st.expander("➕ Призначити нове ДЗ"):
         with st.form("add_hw_form"):
             c1_hw, c2_hw, c3_hw = st.columns([2, 3, 2])
@@ -310,7 +320,6 @@ if "Дашборд" in page:
                     st.success("✅ Завдання успішно додано!")
                     st.rerun()
 
-    # Інтерактивний список завдань
     st.markdown("<br>", unsafe_allow_html=True)
     status_colors = {"Здано": "🟢", "В процесі": "🟡", "Не розпочато": "🔴"}
     next_status = {"Не розпочато": "В процесі", "В процесі": "Здано", "Здано": "Не розпочато"}
@@ -318,7 +327,6 @@ if "Дашборд" in page:
     if not st.session_state.hw_items:
         st.info("Немає активних завдань.")
     else:
-        # Заголовок таблиці
         col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
         col1.markdown("**Учень**")
         col2.markdown("**Завдання**")
@@ -327,7 +335,6 @@ if "Дашборд" in page:
         col5.markdown("**Дія**")
         st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
 
-        # Рядки таблиці
         for i, hw in enumerate(st.session_state.hw_items):
             col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
             col1.markdown(f"<div style='padding-top:8px;'>{hw['student']}</div>", unsafe_allow_html=True)
@@ -336,20 +343,15 @@ if "Дашборд" in page:
             col4.markdown(f"<div style='padding-top:8px;'>{status_colors[hw['status']]} {hw['status']}</div>", unsafe_allow_html=True)
 
             btn_col1, btn_col2 = col5.columns([1, 1])
-            # Кнопка перемикання статусу
             if btn_col1.button("🔄", key=f"toggle_hw_{hw['id']}", help="Змінити статус"):
                 st.session_state.hw_items[i]["status"] = next_status[hw["status"]]
                 st.rerun()
-            # Кнопка видалення завдання
             if btn_col2.button("❌", key=f"del_hw_{hw['id']}", help="Видалити завдання"):
                 st.session_state.hw_items = [item for item in st.session_state.hw_items if item["id"] != hw["id"]]
                 st.rerun()
             
             st.markdown("<hr style='margin: 0.2rem 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
 
-    # ----------------------------------------------------
-    # Мінідіаграма прогресу учнів
-    # ----------------------------------------------------
     st.markdown("### 📈 Прогрес учнів")
     students = st.session_state.students
     if students:
@@ -376,7 +378,6 @@ if "Дашборд" in page:
 elif "Учні" in page:
     st.markdown("## 👥 Учні та Керування Базою")
 
-    # Імпорт/Експорт
     with st.expander("💾 Резервне копіювання (Імпорт / Експорт)"):
         col_exp, col_imp = st.columns(2)
         with col_exp:
@@ -401,7 +402,6 @@ elif "Учні" in page:
 
     students = st.session_state.students
 
-    # Додавання учня
     if st.session_state.show_add_student:
         with st.expander("➕ Новий учень", expanded=True):
             with st.form("add_student_form"):
@@ -438,7 +438,6 @@ elif "Учні" in page:
                     st.session_state.show_add_student = False
                     st.rerun()
 
-    # Фільтри
     col_search, col_btn = st.columns([4, 1])
     search = col_search.text_input("🔍 Пошук учня...", label_visibility="collapsed", placeholder="Пошук учня...")
     if col_btn.button("➕ Додати учня", use_container_width=True):
@@ -446,7 +445,6 @@ elif "Учні" in page:
 
     filtered = [s for s in students if search.lower() in s["name"].lower()]
 
-    # Картки учнів (3 в рядок)
     for i in range(0, len(filtered), 3):
         cols = st.columns(3)
         for j, col in enumerate(cols):
@@ -489,7 +487,6 @@ elif "Учні" in page:
                 if col.button("Детальніше", key=f"btn_{s['id']}", use_container_width=True):
                     st.session_state.selected_student = s["id"]
 
-    # Відкрита картка учня
     if st.session_state.selected_student:
         s = next((x for x in students if x["id"] == st.session_state.selected_student), None)
         if s:
@@ -514,7 +511,6 @@ elif "Учні" in page:
                     st.success("Збережено!")
 
             with tab2:
-                # Теплова карта тем
                 topics = s.get("topics", {})
                 colors_map = {
                     range(0, 30): ("#FCEBEB", "#791F1F"),
@@ -536,7 +532,6 @@ elif "Учні" in page:
                     st.markdown(f"<div class='hm-grid'>{html_cells}</div>", unsafe_allow_html=True)
                 st.markdown("")
 
-                # Графік динаміки
                 months = ["Берез.", "Квіт.", "Трав.", "Черв.", "Лип.", "Серп."]
                 scores = s.get("test_scores", [])
                 n = min(len(months), len(scores))
@@ -563,7 +558,6 @@ elif "Учні" in page:
                     st.success(f"Зараховано {n_add} уроків. Разом: {s['paid_lessons']}")
 
             st.markdown("---")
-            # Кнопки CRUD для відкритого учня
             c_edit, c_del, c_close = st.columns(3)
             
             if c_edit.button("✏️ Редагувати профіль", use_container_width=True):
@@ -578,7 +572,6 @@ elif "Учні" in page:
                 st.session_state.selected_student = None
                 st.rerun()
 
-            # Форма редагування
             if st.session_state.get(f"edit_mode_{s['id']}", False):
                 with st.form(f"edit_form_{s['id']}"):
                     st.markdown("#### Редагування даних")
@@ -614,7 +607,6 @@ elif "Дошка" in page:
     with tab_wb:
         st.info("💡 Введіть формулу в полі нижче або скористайтеся готовими шаблонами для пояснення учням.")
 
-        # Шаблони
         st.markdown("**Готові шаблони:**")
         tmpl_cols = st.columns(4)
         templates = [
@@ -665,7 +657,6 @@ elif "Дошка" in page:
         x_min = c2.number_input("x від", value=-10.0, step=1.0)
         x_max = c3.number_input("x до", value=10.0, step=1.0)
 
-        # Додаткові функції
         func2 = st.text_input("Друга функція (необов'язково)", value="", placeholder="cos(x)")
 
         try:
@@ -776,7 +767,6 @@ elif "Дошка" in page:
                                           text=["", name], textposition="top center",
                                           line=dict(color=color, width=2.5),
                                           marker=dict(size=[0, 10], color=color), name=name))
-            # Сума
             fig4.add_trace(go.Scatter(x=[0, ax_v+bx_v], y=[0, ay_v+by_v],
                                       mode="lines+markers+text",
                                       text=["", "a+b"], textposition="top center",
@@ -808,21 +798,17 @@ elif "Аналітика" in page:
     if not students:
         st.warning("База учнів порожня.")
     else:
-        # Метрики
         c1, c2, c3, c4 = st.columns(4)
         avg_progress = round(sum(s["progress"] for s in students) / len(students)) if students else 0
         c1.metric("Середній прогрес", f"{avg_progress}%", "+5% за місяць")
         c2.metric("Відвідуваність", "94%", "+2%")
         
-        # Динамічний підрахунок зданих ДЗ для верхньої метрики
         total_hw_done = sum(1 for hw in st.session_state.hw_items if hw["status"] == "Здано")
         c3.metric("Завдань здано", str(total_hw_done), "всього")
-        
         c4.metric("Сер. бал (прогноз)", "158", "+12 за місяць")
 
         st.markdown("---")
 
-        # Оберіть учня для аналізу
         student_names = [s["name"] for s in students]
         selected_name = st.selectbox("Оберіть учня для детального аналізу", student_names)
         s = next(x for x in students if x["name"] == selected_name)
@@ -890,11 +876,9 @@ elif "Аналітика" in page:
             else:
                 st.info("Немає результатів тестів")
 
-        # Порівняння всіх учнів
         st.markdown("---")
         st.markdown("**Порівняння прогресу всіх учнів (Динамічний вибір)**")
         
-        # Динамічний збір усіх унікальних тем для порівняння
         all_topics = set()
         for student in students:
             all_topics.update(student.get("topics", {}).keys())
@@ -923,16 +907,14 @@ elif "Аналітика" in page:
             )
             st.plotly_chart(fig_compare, use_container_width=True)
 
-        # Статистика залученості
         st.markdown("---")
         st.markdown("**Статистика залученості учнів**")
         
-        # Автоматичний підрахунок "Здано ДЗ (%)" для кожного учня на основі Трекера
         zdano_pct_list = []
         for st_iter in students:
             student_hws = [hw for hw in st.session_state.hw_items if hw["student"] == st_iter["name"]]
             if not student_hws:
-                zdano_pct_list.append(0) # Або 100, якщо ДЗ ще не призначали
+                zdano_pct_list.append(0)
             else:
                 done_hws = [hw for hw in student_hws if hw["status"] == "Здано"]
                 zdano_pct_list.append(int((len(done_hws) / len(student_hws)) * 100))
@@ -940,7 +922,7 @@ elif "Аналітика" in page:
         engage_data = {
             "Учень": [st_iter["name"] for st_iter in students],
             "Уроків": [st_iter["lessons_total"] for st_iter in students],
-            "Здано ДЗ (%)": zdano_pct_list,  # Дані тепер підтягуються динамічно!
+            "Здано ДЗ (%)": zdano_pct_list,
             "Сер. час ДЗ (хв)": [random.randint(20, 75) for _ in students],
             "Бал тесту (%)": [st_iter["progress"] for st_iter in students],
         }
@@ -956,33 +938,59 @@ elif "Бібліотека" in page:
     tab_files, tab_test = st.tabs(["📁 Файли", "✅ Конструктор тестів"])
 
     with tab_files:
-        search_lib = st.text_input("🔍 Пошук матеріалів...", label_visibility="collapsed",
-                                    placeholder="Пошук матеріалів...")
-        filter_type = st.radio("Тип:", ["Всі", "PDF", "Презентація", "Квіз"], horizontal=True)
+        search_lib = st.text_input("🔍 Пошук матеріалів...", label_visibility="collapsed", placeholder="Пошук матеріалів...")
+        filter_type = st.radio("Тип:", ["Всі", "Файли", "Квіз"], horizontal=True)
 
-        library = load_library()
-        type_map = {"PDF": "pdf", "Презентація": "ppt", "Квіз": "quiz"}
+        library = get_dynamic_library()
 
         if search_lib:
             library = [x for x in library if search_lib.lower() in x["name"].lower()]
-        if filter_type != "Всі":
-            library = [x for x in library if x["type"] == type_map.get(filter_type, "")]
+        if filter_type == "Файли":
+            library = [x for x in library if x.get("real_file")]
+        elif filter_type == "Квіз":
+            library = [x for x in library if x.get("type") == "quiz"]
 
-        items_html = ""
-        for item in library:
-            items_html += f"""
-            <div class='lib-item'>
-                <div class='lib-icon'>{item["icon"]}</div>
-                <div class='lib-name'>{item["name"]}</div>
-                <div class='lib-meta'>{item["meta"]}</div>
-            </div>"""
-        st.markdown(f"<div class='lib-grid'>{items_html}</div>", unsafe_allow_html=True)
+        # Відображення сітки (по 3 колонки)
+        for i in range(0, len(library), 3):
+            cols = st.columns(3)
+            for j, col in enumerate(cols):
+                if i + j < len(library):
+                    item = library[i + j]
+                    with col:
+                        st.markdown(f"""
+                        <div class='lib-item'>
+                            <div class='lib-icon'>{item["icon"]}</div>
+                            <div class='lib-name' title='{item["name"]}'>{item["name"]}</div>
+                            <div class='lib-meta'>{item["meta"]}</div>
+                        </div>""", unsafe_allow_html=True)
+                        
+                        # Якщо це реальний файл — додаємо кнопку завантаження
+                        if item.get("real_file"):
+                            with open(item["path"], "rb") as f:
+                                st.download_button(
+                                    label="⬇️ Завантажити",
+                                    data=f,
+                                    file_name=item["name"],
+                                    use_container_width=True,
+                                    key=f"dl_{item['name']}"
+                                )
+                        else:
+                            st.button("Відкрити", key=f"open_{item['name']}", disabled=True, use_container_width=True)
 
         st.markdown("---")
         st.markdown("**Завантажити новий матеріал:**")
-        uploaded = st.file_uploader("Оберіть файл", type=["pdf", "pptx", "jpg", "png", "docx"])
-        if uploaded:
-            st.success(f"✅ Файл '{uploaded.name}' завантажено до бібліотеки!")
+        
+        # Форма для завантаження нового файлу
+        with st.form("upload_form", clear_on_submit=True):
+            uploaded_file = st.file_uploader("Оберіть файл", type=["pdf", "pptx", "ppt", "jpg", "png", "docx", "doc", "zip", "py", "html"])
+            submitted = st.form_submit_button("Завантажити у бібліотеку")
+            
+            if submitted and uploaded_file is not None:
+                file_path = UPLOAD_DIR / uploaded_file.name
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                st.success(f"✅ Файл '{uploaded_file.name}' успішно завантажено!")
+                st.rerun()
 
     with tab_test:
         st.markdown("### Генератор тестів")
@@ -1066,7 +1074,6 @@ elif "Фінанси" in page:
 
     students = st.session_state.students
 
-    # Метрики
     total_income = sum(s["lessons_total"] * s["rate"] for s in students)
     debt = sum(s["rate"] for s in students if s["paid_lessons"] == 0)
     c1, c2, c3, c4 = st.columns(4)
@@ -1077,7 +1084,6 @@ elif "Фінанси" in page:
 
     st.markdown("---")
 
-    # Таблиця оплат
     st.markdown("### Стан оплат по учнях")
 
     for s in students:
@@ -1100,7 +1106,6 @@ elif "Фінанси" in page:
 
     st.markdown("---")
 
-    # Графік доходів по місяцях
     st.markdown("### Динаміка доходів")
     income_months = ["Лист.", "Груд.", "Січ.", "Лют.", "Берез.", "Квіт.", "Трав."]
     income_vals = [4200, 5800, 3500, 6700, 7200, 8000, total_income if total_income > 0 else 8400]
@@ -1129,7 +1134,6 @@ elif "Фінанси" in page:
     )
     st.plotly_chart(fig_income, use_container_width=True)
 
-    # Додавання нової оплати
     if students:
         st.markdown("### Зарахувати оплату")
         with st.form("payment_form"):
