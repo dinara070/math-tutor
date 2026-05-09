@@ -1,5 +1,5 @@
 """
-MathTutor Pro — Платформа для репетитора з математики
+MathTutor Pro — Платформа для репетитора
 Запуск: streamlit run math_tutor.py
 Залежності: pip install streamlit plotly pandas
 """
@@ -10,6 +10,7 @@ import plotly.express as px
 import pandas as pd
 from datetime import datetime, date, timedelta
 import random
+import json
 
 # ─────────────────────────────────────────
 # Конфігурація сторінки
@@ -42,38 +43,14 @@ st.markdown("""
 [data-testid="metric-container"] [data-testid="stMetricValue"] { font-size: 24px !important; }
 
 /* Картки */
-.card {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    border: 0.5px solid #e8e6e0;
-    margin-bottom: 12px;
-}
-.card-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    margin-bottom: 10px;
-}
+.card { background: white; border-radius: 12px; padding: 16px; border: 0.5px solid #e8e6e0; margin-bottom: 12px; }
+.card-title { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
 
 /* Розклад */
-.lesson-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 0.5px solid #f0eeea;
-    font-size: 13px;
-}
+.lesson-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid #f0eeea; font-size: 13px; }
 .lesson-row:last-child { border-bottom: none; }
 .lesson-time { color: #aaa; min-width: 46px; font-size: 12px; }
-.lesson-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
+.lesson-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dot-done    { background: #d0d0d0; }
 .dot-active  { background: #1D9E75; }
 .dot-upcoming{ background: #534AB7; }
@@ -81,122 +58,49 @@ st.markdown("""
 .lesson-topic{ color: #888; font-size: 11px; }
 
 /* Бейджі */
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 500;
-}
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
 .badge-green  { background:#E1F5EE; color:#085041; }
 .badge-purple { background:#EEEDFE; color:#26215C; }
 .badge-amber  { background:#FAEEDA; color:#633806; }
 .badge-red    { background:#FCEBEB; color:#791F1F; }
 
 /* Учні */
-.student-card {
-    background: white;
-    border: 0.5px solid #e8e6e0;
-    border-radius: 10px;
-    padding: 14px;
-    cursor: pointer;
-    transition: border-color .2s, box-shadow .2s;
-}
+.student-card { background: white; border: 0.5px solid #e8e6e0; border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
 .student-card:hover { border-color: #534AB7; box-shadow: 0 2px 12px rgba(83,74,183,.08); }
-.avatar {
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 500;
-    margin-bottom: 8px;
-}
+.avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; margin-bottom: 8px; }
 
 /* Сповіщення */
 .notif { display:flex; gap:10px; padding:8px 0; border-bottom:0.5px solid #f0eeea; }
 .notif:last-child { border-bottom:none; }
-.notif-icon {
-    width:28px; height:28px;
-    border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-size:14px; flex-shrink:0;
-}
+.notif-icon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
 .notif-text { font-size:12px; color:#555; line-height:1.5; }
 .notif-time { font-size:11px; color:#aaa; margin-top:2px; }
 
 /* Теплова карта */
-.hm-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    margin-top: 6px;
-}
-.hm-cell {
-    border-radius: 6px;
-    padding: 8px 6px;
-    text-align: center;
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-}
+.hm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; margin-top: 6px; }
+.hm-cell { border-radius: 6px; padding: 8px 6px; text-align: center; font-size: 11px; font-weight: 500; cursor: pointer; }
 
 /* Бібліотека */
-.lib-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-top: 8px;
-}
-.lib-item {
-    background:white;
-    border:0.5px solid #e8e6e0;
-    border-radius:8px;
-    padding:12px;
-    cursor:pointer;
-    transition:border-color .15s;
-}
+.lib-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+.lib-item { background:white; border:0.5px solid #e8e6e0; border-radius:8px; padding:12px; cursor:pointer; transition:border-color .15s; }
 .lib-item:hover { border-color:#534AB7; }
 .lib-icon { font-size:22px; margin-bottom:5px; }
 .lib-name { font-size:12px; font-weight:500; color:#1a1a1a; }
 .lib-meta { font-size:11px; color:#aaa; margin-top:2px; }
 
 /* Фінанси */
-.finance-row {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:9px 0;
-    border-bottom:0.5px solid #f0eeea;
-    font-size:13px;
-}
+.finance-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:0.5px solid #f0eeea; font-size:13px; }
 .finance-row:last-child { border-bottom:none; }
 
 /* Кнопки навігації в sidebar */
 div[data-testid="stRadio"] > div { gap: 4px; }
-div[data-testid="stRadio"] label {
-    background: transparent;
-    border-radius: 6px;
-    padding: 7px 12px !important;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background .15s;
-    width: 100%;
-}
+div[data-testid="stRadio"] label { background: transparent; border-radius: 6px; padding: 7px 12px !important; font-size: 13px; cursor: pointer; transition: background .15s; width: 100%; }
 div[data-testid="stRadio"] label:hover { background: #f0eeea; }
 
 /* Кнопки streamlit */
-.stButton > button {
-    border-radius: 8px;
-    font-size: 12px;
-    border: 0.5px solid #d0cec8;
-}
+.stButton > button { border-radius: 8px; font-size: 12px; border: 0.5px solid #d0cec8; }
 .stButton > button:hover { border-color: #534AB7; color: #534AB7; }
-
-div[data-testid="stExpander"] {
-    border: 0.5px solid #e8e6e0 !important;
-    border-radius: 10px !important;
-    background: white;
-}
+div[data-testid="stExpander"] { border: 0.5px solid #e8e6e0 !important; border-radius: 10px !important; background: white; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -204,96 +108,56 @@ div[data-testid="stExpander"] {
 # ─────────────────────────────────────────
 # Дані (state)
 # ─────────────────────────────────────────
-@st.cache_data
 def load_students():
     return [
         {
-            "id": 1, "name": "Марія Коваленко", "initials": "МК",
+            "id": 1, "name": "Дарія Костур", "initials": "ДК",
             "color_bg": "#EEEDFE", "color_txt": "#3C3489",
-            "goal": "НМТ · Алгебра, Геометрія", "level": "Середній",
-            "progress": 78, "lessons_total": 12, "rate": 800,
-            "paid_lessons": 1, "phone": "+380 67 123-45-67",
-            "email": "mkovalenko@gmail.com",
-            "notes": "Слабко з тригонометрією. Готується до НМТ у 2025. Домашні здає вчасно.",
-            "topics": {"Алгебра": 88, "Рівняння": 85, "Геометрія": 70, "Тригон.": 38, "Логариф.": 60, "Похідна": 45, "Інтеграли": 25},
-            "test_scores": [55, 60, 66, 70, 75, 78],
+            "goal": "Школа · 6 клас (Математика)", "level": "Середній",
+            "progress": 65, "lessons_total": 8, "rate": 350,
+            "paid_lessons": 2, "phone": "+380 99 123-45-67",
+            "email": "daria.k@ukr.net",
+            "notes": "Повторення звичайних дробів, підготовка до контрольної роботи.",
+            "topics": {"Звичайні дроби": 80, "Десяткові дроби": 90, "Відсотки": 45, "Рівняння": 60, "Геометрія (база)": 50},
+            "test_scores": [50, 55, 60, 65],
         },
         {
-            "id": 2, "name": "Денис Лисенко", "initials": "ДЛ",
+            "id": 2, "name": "Анастасія", "initials": "АН",
             "color_bg": "#E1F5EE", "color_txt": "#085041",
-            "goal": "НМТ · Всі розділи", "level": "Початковий",
-            "progress": 55, "lessons_total": 8, "rate": 900,
-            "paid_lessons": 5, "phone": "+380 50 987-65-43",
-            "email": "denys.l@ukr.net",
-            "notes": "Нульовий рівень на початку. Хороша динаміка! Потрібно більше уваги до геометрії.",
-            "topics": {"Алгебра": 65, "Рівняння": 55, "Геометрія": 35, "Тригон.": 20, "Логариф.": 40, "Похідна": 15, "Інтеграли": 5},
-            "test_scores": [30, 38, 44, 50, 55, 55],
+            "goal": "Технікум (Польща) · Математика", "level": "Високий",
+            "progress": 82, "lessons_total": 14, "rate": 500,
+            "paid_lessons": 4, "phone": "+380 67 987-65-43",
+            "email": "anastasia.pl@gmail.com",
+            "notes": "Вища математика, польська термінологія. Акцент на функції та тригонометрію.",
+            "topics": {"Функції": 90, "Тригонометрія": 80, "Похідна": 75, "Інтеграли": 65, "Алгебра": 95},
+            "test_scores": [70, 75, 78, 82],
         },
         {
-            "id": 3, "name": "Аліна Власенко", "initials": "АВ",
+            "id": 3, "name": "Макар", "initials": "МА",
             "color_bg": "#FAEEDA", "color_txt": "#633806",
-            "goal": "Школа · 10 клас", "level": "Високий",
-            "progress": 91, "lessons_total": 20, "rate": 750,
-            "paid_lessons": 8, "phone": "+380 93 456-78-90",
-            "email": "alina.vlasenko@gmail.com",
-            "notes": "Відмінниця. Цікавиться олімпіадними задачами. Попросила матеріали по стереометрії.",
-            "topics": {"Алгебра": 95, "Рівняння": 90, "Геометрія": 85, "Тригон.": 88, "Логариф.": 92, "Похідна": 80, "Інтеграли": 70},
-            "test_scores": [62, 70, 75, 82, 88, 91],
-        },
-        {
-            "id": 4, "name": "Олег Мороз", "initials": "ОМ",
-            "color_bg": "#FAECE7", "color_txt": "#712B13",
-            "goal": "Школа · 11 клас · Підготовка НМТ", "level": "Початковий",
-            "progress": 42, "lessons_total": 5, "rate": 850,
-            "paid_lessons": 0, "phone": "+380 66 321-09-87",
-            "email": "oleg.moroz@gmail.com",
-            "notes": "Новий учень. Прийшов з великими прогалинами. Потребує систематизації з 8 класу.",
-            "topics": {"Алгебра": 50, "Рівняння": 45, "Геометрія": 30, "Тригон.": 15, "Логариф.": 20, "Похідна": 10, "Інтеграли": 5},
-            "test_scores": [20, 28, 35, 38, 42, 42],
-        },
-        {
-            "id": 5, "name": "Софія Тимченко", "initials": "СТ",
-            "color_bg": "#EEEDFE", "color_txt": "#26215C",
-            "goal": "НМТ · Алгебра та початки аналізу", "level": "Середній",
-            "progress": 67, "lessons_total": 15, "rate": 800,
-            "paid_lessons": 3, "phone": "+380 67 555-44-33",
-            "email": "sofia.t@gmail.com",
-            "notes": "Стабільний прогрес. Мріє про 180+ балів. Складність — логарифмічні нерівності.",
-            "topics": {"Алгебра": 75, "Рівняння": 70, "Геометрія": 60, "Тригон.": 50, "Логариф.": 40, "Похідна": 55, "Інтеграли": 30},
-            "test_scores": [40, 48, 55, 60, 64, 67],
-        },
-        {
-            "id": 6, "name": "Іван Петренко", "initials": "ІП",
-            "color_bg": "#E1F5EE", "color_txt": "#0F6E56",
-            "goal": "Школа · 9 клас", "level": "Середній",
-            "progress": 63, "lessons_total": 10, "rate": 700,
-            "paid_lessons": 2, "phone": "+380 98 777-11-22",
-            "email": "ivan.p@ukr.net",
-            "notes": "Любить геометрію, слабший в алгебрі. Активний на заняттях.",
-            "topics": {"Алгебра": 50, "Рівняння": 60, "Геометрія": 80, "Тригон.": 45, "Логариф.": 30, "Похідна": 20, "Інтеграли": 10},
-            "test_scores": [45, 50, 55, 58, 62, 63],
-        },
+            "goal": "Програмування · Python", "level": "Початковий",
+            "progress": 45, "lessons_total": 6, "rate": 450,
+            "paid_lessons": 1, "phone": "+380 63 111-22-33",
+            "email": "makar.dev@gmail.com",
+            "notes": "Основи Python. Працюємо над проєктами (Аналізатор та Шляхошукач).",
+            "topics": {"Змінні": 90, "If/Else": 75, "Цикли for/while": 40, "Списки": 20, "Функції": 0},
+            "test_scores": [25, 35, 45],
+        }
     ]
-
 
 def load_schedule():
-    today = date.today()
     return [
-        {"time": "09:00", "student": "Марія К.", "topic": "Квадратні рівняння", "status": "done"},
-        {"time": "11:00", "student": "Денис Л.", "topic": "НМТ — геометрія", "status": "done"},
-        {"time": "14:00", "student": "Аліна В.", "topic": "Тригонометрія — sin/cos", "status": "active"},
-        {"time": "16:30", "student": "Олег М.", "topic": "Похідна функції", "status": "upcoming"},
+        {"time": "11:00", "student": "Дарія Костур", "topic": "Звичайні дроби: Додавання", "status": "done"},
+        {"time": "14:00", "student": "Анастасія", "topic": "Похідна складеної функції", "status": "active"},
+        {"time": "16:30", "student": "Макар", "topic": "Цикли for та while", "status": "upcoming"},
     ]
-
 
 def load_notifications():
     return [
-        {"icon": "📋", "style": "background:#EEEDFE;color:#534AB7", "text": "<strong>Аліна В.</strong> надіслала домашнє завдання — інтеграли", "time": "10 хвилин тому"},
-        {"icon": "💬", "style": "background:#E1F5EE;color:#0F6E56", "text": "<strong>Денис Л.</strong> запитує про перенесення уроку", "time": "1 годину тому"},
-        {"icon": "💰", "style": "background:#FAEEDA;color:#854F0B", "text": "<strong>Марія К.</strong> — залишився 1 оплачений урок", "time": "Вчора"},
-        {"icon": "📋", "style": "background:#EEEDFE;color:#534AB7", "text": "<strong>Олег М. та Софія Т.</strong> здали тест з логарифмів", "time": "Вчора, 18:40"},
+        {"icon": "📋", "style": "background:#EEEDFE;color:#534AB7", "text": "<strong>Макар</strong> надіслав код проєкту на перевірку", "time": "10 хвилин тому"},
+        {"icon": "💬", "style": "background:#E1F5EE;color:#0F6E56", "text": "<strong>Анастасія</strong> запитує переклад терміну «Calka»", "time": "1 годину тому"},
+        {"icon": "💰", "style": "background:#FAEEDA;color:#854F0B", "text": "<strong>Дарія Костур</strong> — залишився 1 оплачений урок", "time": "Вчора"},
     ]
-
 
 def load_library():
     return [
@@ -303,9 +167,7 @@ def load_library():
         {"icon": "📄", "name": "Стереометрія", "meta": "PDF · 24 стор.", "type": "pdf"},
         {"icon": "✅", "name": "Тест: Рівняння", "meta": "Квіз · 20 питань", "type": "quiz"},
         {"icon": "🖼️", "name": "Геометричні моделі", "meta": "Зображення · 18 шт.", "type": "img"},
-        {"icon": "📄", "name": "Логарифми — теорія + задачі", "meta": "PDF · 18 стор.", "type": "pdf"},
-        {"icon": "✅", "name": "Тест: Похідна", "meta": "Квіз · 12 питань", "type": "quiz"},
-        {"icon": "📊", "name": "Аналітична геометрія", "meta": "PPT · 20 слайдів", "type": "ppt"},
+        {"icon": "💻", "name": "Python: Основи синтаксису", "meta": "PPT · 20 слайдів", "type": "ppt"},
     ]
 
 
@@ -318,16 +180,13 @@ if "selected_student" not in st.session_state:
     st.session_state.selected_student = None
 if "show_add_student" not in st.session_state:
     st.session_state.show_add_student = False
-if "show_add_lesson" not in st.session_state:
-    st.session_state.show_add_lesson = False
 if "test_questions" not in st.session_state:
     st.session_state.test_questions = []
 if "hw_items" not in st.session_state:
     st.session_state.hw_items = [
-        {"student": "Аліна В.", "task": "Параграф 12, задачі 1-10", "due": "сьогодні", "status": "Здано"},
-        {"student": "Денис Л.", "task": "Кути вписаного трикутника", "due": "завтра", "status": "В процесі"},
-        {"student": "Олег М.", "task": "Рівняння з параметром (5 задач)", "due": "завтра", "status": "Не розпочато"},
-        {"student": "Марія К.", "task": "Формули скороченого множення", "due": "пт", "status": "Не розпочато"},
+        {"student": "Анастасія", "task": "Дослідити функцію y=x^3-3x+2", "due": "сьогодні", "status": "В процесі"},
+        {"student": "Макар", "task": "Написати скрипт «Аналізатор»", "due": "завтра", "status": "Здано"},
+        {"student": "Дарія Костур", "task": "Задачі на відсотки № 15-20", "due": "пт", "status": "Не розпочато"},
     ]
 
 
@@ -351,15 +210,11 @@ with st.sidebar:
     st.markdown("---")
     today_str = datetime.now().strftime("%A, %d %B")
     st.markdown(f"<div style='font-size:12px;color:#aaa;padding:0 4px'>{today_str}</div>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:13px;font-weight:500;color:#1a1a1a;padding:2px 4px 6px'>Сьогодні 4 уроки</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:13px;font-weight:500;color:#1a1a1a;padding:2px 4px 6px'>Сьогодні 3 уроки</div>", unsafe_allow_html=True)
 
     with st.expander("⚡ Швидкі дії"):
         if st.button("➕ Додати учня", use_container_width=True):
             st.session_state.show_add_student = True
-        if st.button("📅 Новий урок", use_container_width=True):
-            st.session_state.show_add_lesson = True
-        if st.button("📝 Задати ДЗ", use_container_width=True):
-            st.session_state.active_tab_library = "Конструктор тестів"
 
 
 # ─────────────────────────────────────────
@@ -370,10 +225,11 @@ if "Дашборд" in page:
 
     # Метрики
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📅 Уроки сьогодні", "4", "2 завершено")
-    c2.metric("👥 Активні учні", "12", "+2 цього місяця")
-    c3.metric("📋 ДЗ на перевірку", "7", "3 нових")
-    c4.metric("💰 Дохід (травень)", "18 400 ₴", "план 22 000 ₴")
+    c1.metric("📅 Уроки сьогодні", "3", "1 завершено")
+    c2.metric("👥 Активні учні", str(len(st.session_state.students)), "в базі")
+    c3.metric("📋 ДЗ на перевірку", "3", "1 нове")
+    total_income_projected = sum(s["lessons_total"] * s["rate"] for s in st.session_state.students)
+    c4.metric("💰 Дохід (травень)", f"{total_income_projected} ₴", "прогноз")
 
     st.markdown("")
 
@@ -381,11 +237,8 @@ if "Дашборд" in page:
 
     # Розклад
     with col_left:
-        st.markdown("""<div class='card'>
-        <div class='card-title'>Розклад на сьогодні</div>""", unsafe_allow_html=True)
-
-        schedule = load_schedule()
-        for lesson in schedule:
+        st.markdown("<div class='card'><div class='card-title'>Розклад на сьогодні</div>", unsafe_allow_html=True)
+        for lesson in load_schedule():
             dot_class = f"dot-{lesson['status']}"
             if lesson["status"] == "done":
                 badge = "<span class='badge badge-green'>✓ Завершено</span>"
@@ -405,14 +258,11 @@ if "Дашборд" in page:
                 {badge}
             </div>
             """, unsafe_allow_html=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Сповіщення
     with col_right:
-        st.markdown("""<div class='card'>
-        <div class='card-title'>Сповіщення</div>""", unsafe_allow_html=True)
-
+        st.markdown("<div class='card'><div class='card-title'>Сповіщення</div>", unsafe_allow_html=True)
         for n in load_notifications():
             st.markdown(f"""
             <div class='notif'>
@@ -423,7 +273,6 @@ if "Дашборд" in page:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Домашні завдання
@@ -432,43 +281,57 @@ if "Дашборд" in page:
     status_colors = {"Здано": "🟢", "В процесі": "🟡", "Не розпочато": "🔴"}
     hw_df["Статус"] = hw_df["status"].map(lambda s: f"{status_colors.get(s,'⚪')} {s}")
     hw_df = hw_df.rename(columns={"student": "Учень", "task": "Завдання", "due": "Здати до"})
-    st.dataframe(
-        hw_df[["Учень", "Завдання", "Здати до", "Статус"]],
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.dataframe(hw_df[["Учень", "Завдання", "Здати до", "Статус"]], use_container_width=True, hide_index=True)
 
     # Мінідіаграма прогресу учнів
     st.markdown("### 📈 Прогрес учнів")
     students = st.session_state.students
-    prog_df = pd.DataFrame({
-        "Учень": [s["name"].split()[0] + " " + s["name"].split()[1][0] + "." for s in students],
-        "Прогрес": [s["progress"] for s in students],
-    })
-    fig = px.bar(
-        prog_df, x="Учень", y="Прогрес",
-        color="Прогрес",
-        color_continuous_scale=["#EEEDFE", "#7F77DD", "#26215C"],
-        range_color=[0, 100],
-        text="Прогрес",
-    )
-    fig.update_traces(texttemplate="%{text}%", textposition="outside", marker_line_width=0)
-    fig.update_layout(
-        height=260, margin=dict(l=0, r=0, t=10, b=0),
-        plot_bgcolor="white", paper_bgcolor="white",
-        coloraxis_showscale=False,
-        yaxis=dict(range=[0, 110], showgrid=True, gridcolor="#f0eeea", title=""),
-        xaxis=dict(title=""),
-        font=dict(size=12),
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    if students:
+        prog_df = pd.DataFrame({
+            "Учень": [s["name"].split()[0] + (" " + s["name"].split()[1][0] + "." if len(s["name"].split()) > 1 else "") for s in students],
+            "Прогрес": [s["progress"] for s in students],
+        })
+        fig = px.bar(
+            prog_df, x="Учень", y="Прогрес", color="Прогрес",
+            color_continuous_scale=["#EEEDFE", "#7F77DD", "#26215C"], range_color=[0, 100], text="Прогрес",
+        )
+        fig.update_traces(texttemplate="%{text}%", textposition="outside", marker_line_width=0)
+        fig.update_layout(
+            height=260, margin=dict(l=0, r=0, t=10, b=0), plot_bgcolor="white", paper_bgcolor="white",
+            coloraxis_showscale=False, yaxis=dict(range=[0, 110], showgrid=True, gridcolor="#f0eeea", title=""),
+            xaxis=dict(title=""), font=dict(size=12),
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 
 # ─────────────────────────────────────────
 # ── УЧНІ ───────────────────────────────
 # ─────────────────────────────────────────
 elif "Учні" in page:
-    st.markdown("## 👥 Учні")
+    st.markdown("## 👥 Учні та Керування Базою")
+
+    # Імпорт/Експорт
+    with st.expander("💾 Резервне копіювання (Імпорт / Експорт)"):
+        col_exp, col_imp = st.columns(2)
+        with col_exp:
+            st.download_button(
+                label="📥 Завантажити файл бази (JSON)",
+                data=json.dumps(st.session_state.students, ensure_ascii=False, indent=2),
+                file_name="mathtutor_students.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        with col_imp:
+            uploaded_file = st.file_uploader("📤 Завантажити базу (JSON)", type="json", label_visibility="collapsed")
+            if uploaded_file is not None:
+                try:
+                    imported_data = json.loads(uploaded_file.read())
+                    if isinstance(imported_data, list):
+                        st.session_state.students = imported_data
+                        st.success("✅ Базу успішно оновлено!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Помилка імпорту: {e}")
 
     students = st.session_state.students
 
@@ -481,43 +344,37 @@ elif "Учні" in page:
                 phone = c2.text_input("Телефон")
                 c3, c4 = st.columns(2)
                 email = c3.text_input("Email")
-                goal = c4.selectbox("Мета навчання", ["НМТ · Алгебра, Геометрія", "НМТ · Всі розділи", "Школа · 9 клас", "Школа · 10 клас", "Школа · 11 клас"])
+                goal = c4.text_input("Мета / Напрямок навчання")
                 c5, c6 = st.columns(2)
                 level = c5.selectbox("Рівень", ["Початковий", "Середній", "Високий"])
-                rate = c6.number_input("Вартість уроку (грн)", value=800, step=50)
+                rate = c6.number_input("Вартість уроку (грн)", value=400, step=50)
                 notes = st.text_area("Нотатки")
-                submitted = st.form_submit_button("Додати учня", type="primary")
+                
+                submitted = st.form_submit_button("Зберегти учня", type="primary")
                 if submitted and name:
                     initials = "".join(w[0].upper() for w in name.split()[:2])
                     colors = [("#EEEDFE","#3C3489"),("#E1F5EE","#085041"),("#FAEEDA","#633806"),("#FAECE7","#712B13")]
                     bg, txt = colors[len(students) % len(colors)]
+                    
+                    new_id = max([s["id"] for s in students] + [0]) + 1
                     st.session_state.students.append({
-                        "id": len(students)+1, "name": name, "initials": initials,
+                        "id": new_id, "name": name, "initials": initials,
                         "color_bg": bg, "color_txt": txt, "goal": goal, "level": level,
                         "progress": 0, "lessons_total": 0, "rate": rate,
                         "paid_lessons": 0, "phone": phone, "email": email, "notes": notes,
-                        "topics": {"Алгебра":0,"Рівняння":0,"Геометрія":0,"Тригон.":0,"Логариф.":0,"Похідна":0,"Інтеграли":0},
-                        "test_scores": [0],
+                        "topics": {"Основи": 0},
+                        "test_scores": [],
                     })
                     st.session_state.show_add_student = False
-                    st.success(f"✅ Учня {name} додано!")
                     st.rerun()
 
     # Фільтри
-    col_search, col_filter, col_btn = st.columns([3, 2, 1])
+    col_search, col_btn = st.columns([4, 1])
     search = col_search.text_input("🔍 Пошук учня...", label_visibility="collapsed", placeholder="Пошук учня...")
-    filter_goal = col_filter.selectbox("Фільтр", ["Всі", "НМТ", "Школа"], label_visibility="collapsed")
-    if col_btn.button("➕ Додати учня"):
+    if col_btn.button("➕ Додати учня", use_container_width=True):
         st.session_state.show_add_student = True
 
-    # Фільтрування
-    filtered = students
-    if search:
-        filtered = [s for s in filtered if search.lower() in s["name"].lower()]
-    if filter_goal == "НМТ":
-        filtered = [s for s in filtered if "НМТ" in s["goal"]]
-    elif filter_goal == "Школа":
-        filtered = [s for s in filtered if "Школа" in s["goal"]]
+    filtered = [s for s in students if search.lower() in s["name"].lower()]
 
     # Картки учнів (3 в рядок)
     for i in range(0, len(filtered), 3):
@@ -530,6 +387,7 @@ elif "Учні" in page:
                     "Середній":   "<span class='badge badge-amber'>Середній</span>",
                     "Високий":    "<span class='badge badge-green'>Високий</span>",
                 }.get(s["level"], "")
+                
                 paid_badge = (
                     "<span class='badge badge-red'>Не оплачено</span>" if s["paid_lessons"] == 0
                     else f"<span class='badge badge-green'>Оплачено {s['paid_lessons']} ур.</span>" if s["paid_lessons"] >= 3
@@ -555,15 +413,15 @@ elif "Учні" in page:
                     <div style='font-size:11px;color:#aaa;margin-top:6px'>{s["lessons_total"]} уроків · {s["rate"]} грн/урок</div>
                 </div>
                 """, unsafe_allow_html=True)
-                if col.button("Детальніше", key=f"student_{s['id']}", use_container_width=True):
+                if col.button("Детальніше", key=f"btn_{s['id']}", use_container_width=True):
                     st.session_state.selected_student = s["id"]
 
-    # Картка учня
+    # Відкрита картка учня
     if st.session_state.selected_student:
         s = next((x for x in students if x["id"] == st.session_state.selected_student), None)
         if s:
             st.markdown("---")
-            st.markdown(f"### Картка учня — {s['name']}")
+            st.markdown(f"### Профіль — {s['name']}")
             tab1, tab2, tab3 = st.tabs(["📌 Загальне", "📊 Прогрес", "💰 Оплата"])
 
             with tab1:
@@ -583,7 +441,7 @@ elif "Учні" in page:
 
             with tab2:
                 # Теплова карта тем
-                topics = s["topics"]
+                topics = s.get("topics", {})
                 colors_map = {
                     range(0, 30): ("#FCEBEB", "#791F1F"),
                     range(30, 60): ("#FAEEDA", "#633806"),
@@ -596,52 +454,75 @@ elif "Учні" in page:
                             return clr
                     return ("#f0f0f0", "#888")
 
-                html_cells = ""
-                for topic, val in topics.items():
-                    bg, txt = get_color(val)
-                    html_cells += f"<div class='hm-cell' style='background:{bg};color:{txt}'><div style='font-size:10px;margin-bottom:2px'>{topic}</div><div style='font-size:14px;font-weight:600'>{val}%</div></div>"
-                st.markdown(f"<div class='hm-grid'>{html_cells}</div>", unsafe_allow_html=True)
+                if topics:
+                    html_cells = ""
+                    for topic, val in topics.items():
+                        bg, txt = get_color(val)
+                        html_cells += f"<div class='hm-cell' style='background:{bg};color:{txt}'><div style='font-size:10px;margin-bottom:2px'>{topic}</div><div style='font-size:14px;font-weight:600'>{val}%</div></div>"
+                    st.markdown(f"<div class='hm-grid'>{html_cells}</div>", unsafe_allow_html=True)
                 st.markdown("")
 
                 # Графік динаміки
                 months = ["Берез.", "Квіт.", "Трав.", "Черв.", "Лип.", "Серп."]
-                scores = s["test_scores"]
+                scores = s.get("test_scores", [])
                 n = min(len(months), len(scores))
-                fig2 = go.Figure()
-                fig2.add_trace(go.Scatter(
-                    x=months[:n], y=scores[:n],
-                    mode="lines+markers+text",
-                    text=[f"{v}%" for v in scores[:n]],
-                    textposition="top center",
-                    line=dict(color="#534AB7", width=2.5),
-                    marker=dict(size=7, color="#534AB7"),
-                    fill="tozeroy",
-                    fillcolor="rgba(83,74,183,0.07)",
-                ))
-                fig2.update_layout(
-                    title="Динаміка результатів тестів",
-                    height=220, margin=dict(l=0,r=0,t=30,b=0),
-                    plot_bgcolor="white", paper_bgcolor="white",
-                    yaxis=dict(range=[0,110], gridcolor="#f0eeea", title="Бали (%)"),
-                    xaxis=dict(gridcolor="#f0eeea"),
-                    font=dict(size=12),
-                    showlegend=False,
-                )
-                st.plotly_chart(fig2, use_container_width=True)
+                if n > 0:
+                    fig2 = go.Figure()
+                    fig2.add_trace(go.Scatter(
+                        x=months[:n], y=scores[:n], mode="lines+markers+text", text=[f"{v}%" for v in scores[:n]],
+                        textposition="top center", line=dict(color="#534AB7", width=2.5), marker=dict(size=7, color="#534AB7"),
+                        fill="tozeroy", fillcolor="rgba(83,74,183,0.07)",
+                    ))
+                    fig2.update_layout(
+                        title="Динаміка результатів тестів", height=220, margin=dict(l=0,r=0,t=30,b=0),
+                        plot_bgcolor="white", paper_bgcolor="white", yaxis=dict(range=[0,110], gridcolor="#f0eeea", title="Бали (%)"),
+                        xaxis=dict(gridcolor="#f0eeea"), font=dict(size=12), showlegend=False,
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
 
             with tab3:
                 st.metric("Оплачено уроків", s["paid_lessons"])
                 st.metric("Заборгованість", "0 грн" if s["paid_lessons"] > 0 else f"{s['rate']} грн", delta=None)
-                n_add = st.number_input("Додати оплачених уроків", min_value=1, max_value=20, value=5)
+                n_add = st.number_input("Додати оплачених уроків", min_value=1, max_value=20, value=5, key=f"n_add_{s['id']}")
                 if st.button("➕ Зарахувати оплату", key=f"pay_{s['id']}"):
                     s["paid_lessons"] += n_add
                     st.success(f"Зараховано {n_add} уроків. Разом: {s['paid_lessons']}")
-                if st.button("📨 Надіслати нагадування про оплату", key=f"remind_{s['id']}"):
-                    st.info(f"Нагадування надіслано учню {s['name']} на {s['phone']}")
 
-            if st.button("✕ Закрити картку"):
+            st.markdown("---")
+            # Кнопки CRUD для відкритого учня
+            c_edit, c_del, c_close = st.columns(3)
+            
+            if c_edit.button("✏️ Редагувати профіль", use_container_width=True):
+                st.session_state[f"edit_mode_{s['id']}"] = not st.session_state.get(f"edit_mode_{s['id']}", False)
+                
+            if c_del.button("🗑 Видалити учня", type="primary", use_container_width=True):
+                st.session_state.students = [x for x in st.session_state.students if x["id"] != s["id"]]
                 st.session_state.selected_student = None
                 st.rerun()
+                
+            if c_close.button("✕ Закрити картку", use_container_width=True):
+                st.session_state.selected_student = None
+                st.rerun()
+
+            # Форма редагування
+            if st.session_state.get(f"edit_mode_{s['id']}", False):
+                with st.form(f"edit_form_{s['id']}"):
+                    st.markdown("#### Редагування даних")
+                    e_name = st.text_input("Ім'я", value=s["name"])
+                    e_goal = st.text_input("Мета/Напрямок", value=s["goal"])
+                    e_phone = st.text_input("Телефон", value=s["phone"])
+                    e_rate = st.number_input("Вартість", value=s["rate"])
+                    
+                    if st.form_submit_button("💾 Зберегти зміни"):
+                        for idx, student in enumerate(st.session_state.students):
+                            if student["id"] == s["id"]:
+                                st.session_state.students[idx]["name"] = e_name
+                                st.session_state.students[idx]["goal"] = e_goal
+                                st.session_state.students[idx]["phone"] = e_phone
+                                st.session_state.students[idx]["rate"] = e_rate
+                                break
+                        st.session_state[f"edit_mode_{s['id']}"] = False
+                        st.rerun()
 
 
 # ─────────────────────────────────────────
@@ -661,8 +542,8 @@ elif "Дошка" in page:
         templates = [
             ("Теорема Піфагора", "a^2 + b^2 = c^2"),
             ("Квадратне рівняння", "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}"),
-            ("Синус суми", "\\sin(\\alpha+\\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta"),
-            ("Похідна", "(f \\cdot g)' = f' \\cdot g + f \\cdot g'"),
+            ("Звичайний дріб", "\\frac{a}{b} + \\frac{c}{d} = \\frac{ad+bc}{bd}"),
+            ("Інтеграл (Анастасія)", "\\int x^n dx = \\frac{x^{n+1}}{n+1} + C"),
         ]
         for i, (label, formula) in enumerate(templates):
             if tmpl_cols[i].button(label, key=f"tmpl_{i}", use_container_width=True):
@@ -701,7 +582,7 @@ elif "Дошка" in page:
         import math
 
         c1, c2, c3 = st.columns([3, 1, 1])
-        func_input = c1.text_input("Функція f(x) =", value="sin(x)", label_visibility="collapsed",
+        func_input = c1.text_input("Функція f(x) =", value="x**3 - 3*x + 2", label_visibility="collapsed",
                                     placeholder="sin(x), x**2, cos(x)*exp(-x/5), ...")
         x_min = c2.number_input("x від", value=-10.0, step=1.0)
         x_max = c3.number_input("x до", value=10.0, step=1.0)
@@ -846,115 +727,131 @@ elif "Аналітика" in page:
 
     students = st.session_state.students
 
-    # Метрики
-    c1, c2, c3, c4 = st.columns(4)
-    avg_progress = round(sum(s["progress"] for s in students) / len(students))
-    c1.metric("Середній прогрес", f"{avg_progress}%", "+5% за місяць")
-    c2.metric("Відвідуваність", "94%", "+2%")
-    c3.metric("Тестів здано", "23", "цього місяця")
-    c4.metric("Сер. бал НМТ (прогноз)", "158", "+12 за місяць")
+    if not students:
+        st.warning("База учнів порожня.")
+    else:
+        # Метрики
+        c1, c2, c3, c4 = st.columns(4)
+        avg_progress = round(sum(s["progress"] for s in students) / len(students)) if students else 0
+        c1.metric("Середній прогрес", f"{avg_progress}%", "+5% за місяць")
+        c2.metric("Відвідуваність", "94%", "+2%")
+        c3.metric("Тестів здано", "23", "цього місяця")
+        c4.metric("Сер. бал (прогноз)", "158", "+12 за місяць")
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # Оберіть учня для аналізу
-    student_names = [s["name"] for s in students]
-    selected_name = st.selectbox("Оберіть учня для детального аналізу", student_names)
-    s = next(x for x in students if x["name"] == selected_name)
+        # Оберіть учня для аналізу
+        student_names = [s["name"] for s in students]
+        selected_name = st.selectbox("Оберіть учня для детального аналізу", student_names)
+        s = next(x for x in students if x["name"] == selected_name)
 
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-    with col1:
-        st.markdown("**Теплова карта знань**")
-        topics_data = s["topics"]
-        topic_names = list(topics_data.keys())
-        topic_vals = list(topics_data.values())
+        with col1:
+            st.markdown("**Теплова карта знань**")
+            topics_data = s.get("topics", {})
+            if topics_data:
+                topic_names = list(topics_data.keys())
+                topic_vals = list(topics_data.values())
 
-        fig_hm = go.Figure(go.Bar(
-            x=topic_vals, y=topic_names, orientation="h",
-            marker=dict(
-                color=topic_vals,
-                colorscale=[[0, "#FCEBEB"], [0.3, "#FAEEDA"], [0.6, "#EEEDFE"], [1, "#1D9E75"]],
-                cmin=0, cmax=100,
-                showscale=True,
-                colorbar=dict(title="Рівень %", len=0.8),
-            ),
-            text=[f"{v}%" for v in topic_vals],
-            textposition="inside",
-            insidetextanchor="middle",
-        ))
-        fig_hm.update_layout(
-            height=280, margin=dict(l=0, r=60, t=10, b=0),
-            plot_bgcolor="white", paper_bgcolor="white",
-            xaxis=dict(range=[0, 110], title="Рівень знань (%)"),
-            font=dict(size=12),
-        )
-        st.plotly_chart(fig_hm, use_container_width=True)
+                fig_hm = go.Figure(go.Bar(
+                    x=topic_vals, y=topic_names, orientation="h",
+                    marker=dict(
+                        color=topic_vals,
+                        colorscale=[[0, "#FCEBEB"], [0.3, "#FAEEDA"], [0.6, "#EEEDFE"], [1, "#1D9E75"]],
+                        cmin=0, cmax=100,
+                        showscale=True,
+                        colorbar=dict(title="Рівень %", len=0.8),
+                    ),
+                    text=[f"{v}%" for v in topic_vals],
+                    textposition="inside",
+                    insidetextanchor="middle",
+                ))
+                fig_hm.update_layout(
+                    height=280, margin=dict(l=0, r=60, t=10, b=0),
+                    plot_bgcolor="white", paper_bgcolor="white",
+                    xaxis=dict(range=[0, 110], title="Рівень знань (%)"),
+                    font=dict(size=12),
+                )
+                st.plotly_chart(fig_hm, use_container_width=True)
+            else:
+                st.info("Немає даних по темам")
 
-    with col2:
-        st.markdown("**Динаміка результатів тестів**")
-        months = ["Берез.", "Квіт.", "Трав.", "Черв.", "Лип.", "Серп."]
-        scores = s["test_scores"]
-        n = min(len(months), len(scores))
+        with col2:
+            st.markdown("**Динаміка результатів тестів**")
+            months = ["Берез.", "Квіт.", "Трав.", "Черв.", "Лип.", "Серп."]
+            scores = s.get("test_scores", [])
+            n = min(len(months), len(scores))
+            
+            if n > 0:
+                fig_line = go.Figure()
+                fig_line.add_trace(go.Scatter(
+                    x=months[:n], y=scores[:n],
+                    mode="lines+markers+text",
+                    text=[f"{v}%" for v in scores[:n]],
+                    textposition="top center",
+                    line=dict(color="#534AB7", width=2.5),
+                    marker=dict(size=8, color="#534AB7"),
+                    fill="tozeroy",
+                    fillcolor="rgba(83,74,183,0.07)",
+                ))
+                fig_line.add_hline(y=100, line_dash="dot", line_color="#1D9E75", annotation_text="Ціль 100%")
+                fig_line.update_layout(
+                    height=280, margin=dict(l=0, r=0, t=10, b=0),
+                    plot_bgcolor="white", paper_bgcolor="white",
+                    yaxis=dict(range=[0, 115], gridcolor="#f0eeea", title="Результат (%)"),
+                    xaxis=dict(gridcolor="#f0eeea"),
+                    showlegend=False,
+                    font=dict(size=12),
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
+            else:
+                st.info("Немає результатів тестів")
 
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(
-            x=months[:n], y=scores[:n],
-            mode="lines+markers+text",
-            text=[f"{v}%" for v in scores[:n]],
-            textposition="top center",
-            line=dict(color="#534AB7", width=2.5),
-            marker=dict(size=8, color="#534AB7"),
-            fill="tozeroy",
-            fillcolor="rgba(83,74,183,0.07)",
-        ))
-        fig_line.add_hline(y=100, line_dash="dot", line_color="#1D9E75", annotation_text="Ціль 100%")
-        fig_line.update_layout(
-            height=280, margin=dict(l=0, r=0, t=10, b=0),
-            plot_bgcolor="white", paper_bgcolor="white",
-            yaxis=dict(range=[0, 115], gridcolor="#f0eeea", title="Результат (%)"),
-            xaxis=dict(gridcolor="#f0eeea"),
-            showlegend=False,
-            font=dict(size=12),
-        )
-        st.plotly_chart(fig_line, use_container_width=True)
+        # Порівняння всіх учнів
+        st.markdown("---")
+        st.markdown("**Порівняння прогресу всіх учнів (Динамічний вибір)**")
+        
+        # Динамічний збір усіх унікальних тем для порівняння
+        all_topics = set()
+        for student in students:
+            all_topics.update(student.get("topics", {}).keys())
+        
+        if all_topics:
+            compare_topic = st.selectbox("Тема для порівняння", sorted(list(all_topics)))
+            compare_vals = [st_iter.get("topics", {}).get(compare_topic, 0) for st_iter in students]
+            compare_names = [st_iter["name"].split()[0] + (" " + st_iter["name"].split()[1][0] + "." if len(st_iter["name"].split()) > 1 else "") for st_iter in students]
 
-    # Порівняння всіх учнів
-    st.markdown("---")
-    st.markdown("**Порівняння прогресу всіх учнів**")
-    compare_topic = st.selectbox("Тема для порівняння", ["Алгебра", "Рівняння", "Геометрія", "Тригон.", "Логариф.", "Похідна", "Інтеграли"])
-    compare_vals = [s["topics"].get(compare_topic, 0) for s in students]
-    compare_names = [s["name"].split()[0] + " " + s["name"].split()[1][0] + "." for s in students]
+            fig_compare = go.Figure(go.Bar(
+                x=compare_names, y=compare_vals,
+                marker=dict(
+                    color=compare_vals,
+                    colorscale=[[0, "#FCEBEB"], [0.4, "#FAEEDA"], [0.7, "#EEEDFE"], [1, "#1D9E75"]],
+                    cmin=0, cmax=100,
+                ),
+                text=[f"{v}%" for v in compare_vals],
+                textposition="outside",
+            ))
+            fig_compare.update_layout(
+                height=240, margin=dict(l=0, r=0, t=10, b=0),
+                plot_bgcolor="white", paper_bgcolor="white",
+                yaxis=dict(range=[0, 115], gridcolor="#f0eeea", title=f"{compare_topic} (%)"),
+                xaxis=dict(gridcolor="#f0eeea"),
+                showlegend=False, font=dict(size=12),
+            )
+            st.plotly_chart(fig_compare, use_container_width=True)
 
-    fig_compare = go.Figure(go.Bar(
-        x=compare_names, y=compare_vals,
-        marker=dict(
-            color=compare_vals,
-            colorscale=[[0, "#FCEBEB"], [0.4, "#FAEEDA"], [0.7, "#EEEDFE"], [1, "#1D9E75"]],
-            cmin=0, cmax=100,
-        ),
-        text=[f"{v}%" for v in compare_vals],
-        textposition="outside",
-    ))
-    fig_compare.update_layout(
-        height=240, margin=dict(l=0, r=0, t=10, b=0),
-        plot_bgcolor="white", paper_bgcolor="white",
-        yaxis=dict(range=[0, 115], gridcolor="#f0eeea", title=f"{compare_topic} (%)"),
-        xaxis=dict(gridcolor="#f0eeea"),
-        showlegend=False, font=dict(size=12),
-    )
-    st.plotly_chart(fig_compare, use_container_width=True)
-
-    # Статистика залученості
-    st.markdown("---")
-    st.markdown("**Статистика залученості учнів (травень)**")
-    engage_data = {
-        "Учень": compare_names,
-        "Уроків": [s["lessons_total"] for s in students],
-        "Здано ДЗ (%)": [random.randint(60, 100) for _ in students],
-        "Сер. час ДЗ (хв)": [random.randint(20, 75) for _ in students],
-        "Бал тесту (%)": [s["progress"] for s in students],
-    }
-    st.dataframe(pd.DataFrame(engage_data), use_container_width=True, hide_index=True)
+        # Статистика залученості
+        st.markdown("---")
+        st.markdown("**Статистика залученості учнів (травень)**")
+        engage_data = {
+            "Учень": [st_iter["name"] for st_iter in students],
+            "Уроків": [st_iter["lessons_total"] for st_iter in students],
+            "Здано ДЗ (%)": [random.randint(60, 100) for _ in students],
+            "Сер. час ДЗ (хв)": [random.randint(20, 75) for _ in students],
+            "Бал тесту (%)": [st_iter["progress"] for st_iter in students],
+        }
+        st.dataframe(pd.DataFrame(engage_data), use_container_width=True, hide_index=True)
 
 
 # ─────────────────────────────────────────
@@ -1080,10 +977,10 @@ elif "Фінанси" in page:
     total_income = sum(s["lessons_total"] * s["rate"] for s in students)
     debt = sum(s["rate"] for s in students if s["paid_lessons"] == 0)
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💵 Дохід (травень)", f"{18_400:,} ₴".replace(",", " "), "план 22 000 ₴")
-    c2.metric("📅 Оплачено уроків", "46", "з 52 запланованих")
+    c1.metric("💵 Дохід (травень)", f"{total_income:,} ₴".replace(",", " "), "розрахунковий")
+    c2.metric("📅 Оплачено уроків", str(sum(s["paid_lessons"] for s in students)), "в базі")
     c3.metric("⚠️ Заборгованість", f"{debt:,} ₴".replace(",", " "), f"{sum(1 for s in students if s['paid_lessons']==0)} учні")
-    c4.metric("📈 Прогноз (червень)", "21 000 ₴", "+14%")
+    c4.metric("📈 Прогноз (наст. місяць)", f"{int(total_income*1.15):,} ₴".replace(",", " "), "+15%")
 
     st.markdown("---")
 
@@ -1113,7 +1010,7 @@ elif "Фінанси" in page:
     # Графік доходів по місяцях
     st.markdown("### Динаміка доходів")
     income_months = ["Лист.", "Груд.", "Січ.", "Лют.", "Берез.", "Квіт.", "Трав."]
-    income_vals = [14200, 15800, 13500, 16700, 17200, 18000, 18400]
+    income_vals = [4200, 5800, 3500, 6700, 7200, 8000, total_income if total_income > 0 else 8400]
 
     fig_income = go.Figure()
     fig_income.add_trace(go.Scatter(
@@ -1127,11 +1024,12 @@ elif "Фінанси" in page:
         fillcolor="rgba(29,158,117,0.08)",
         name="Дохід",
     ))
-    fig_income.add_hline(y=22000, line_dash="dot", line_color="#534AB7", annotation_text="Ціль 22 000 ₴")
+    target_val = int(max(income_vals) * 1.2) if max(income_vals) > 0 else 10000
+    fig_income.add_hline(y=target_val, line_dash="dot", line_color="#534AB7", annotation_text=f"Ціль {target_val:,} ₴".replace(",", " "))
     fig_income.update_layout(
         height=260, margin=dict(l=0, r=0, t=10, b=0),
         plot_bgcolor="white", paper_bgcolor="white",
-        yaxis=dict(range=[0, 26000], gridcolor="#f0eeea", title="Грн"),
+        yaxis=dict(range=[0, target_val*1.2], gridcolor="#f0eeea", title="Грн"),
         xaxis=dict(gridcolor="#f0eeea"),
         showlegend=False,
         font=dict(size=12),
@@ -1139,17 +1037,18 @@ elif "Фінанси" in page:
     st.plotly_chart(fig_income, use_container_width=True)
 
     # Додавання нової оплати
-    st.markdown("### Зарахувати оплату")
-    with st.form("payment_form"):
-        c1f, c2f, c3f = st.columns(3)
-        pay_student = c1f.selectbox("Учень", [s["name"] for s in students])
-        pay_lessons = c2f.number_input("Кількість уроків", min_value=1, max_value=30, value=5)
-        pay_date = c3f.date_input("Дата оплати", value=date.today())
-        submitted = st.form_submit_button("✅ Зарахувати", type="primary")
-        if submitted:
-            for s in students:
-                if s["name"] == pay_student:
-                    s["paid_lessons"] += pay_lessons
-                    break
-            st.success(f"✅ Зараховано {pay_lessons} уроків для {pay_student}! Дата: {pay_date.strftime('%d.%m.%Y')}")
-            st.rerun()
+    if students:
+        st.markdown("### Зарахувати оплату")
+        with st.form("payment_form"):
+            c1f, c2f, c3f = st.columns(3)
+            pay_student = c1f.selectbox("Учень", [s["name"] for s in students])
+            pay_lessons = c2f.number_input("Кількість уроків", min_value=1, max_value=30, value=5)
+            pay_date = c3f.date_input("Дата оплати", value=date.today())
+            submitted = st.form_submit_button("✅ Зарахувати", type="primary")
+            if submitted:
+                for s in st.session_state.students:
+                    if s["name"] == pay_student:
+                        s["paid_lessons"] += pay_lessons
+                        break
+                st.success(f"✅ Зараховано {pay_lessons} уроків для {pay_student}! Дата: {pay_date.strftime('%d.%m.%Y')}")
+                st.rerun()
