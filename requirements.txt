@@ -3,3 +3,5 @@ plotly
 pandas
 streamlit-drawable-canvas
 openpyxl
+mplsoccer
+matplotlib
