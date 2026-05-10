@@ -1,6 +1,6 @@
 # MathTutor Pro — Платформа для репетитора
 # Запуск: streamlit run app.py
-# Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib fpdf
+# Залежності: pip install streamlit plotly pandas openpyxl mplsoccer matplotlib fpdf
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -13,12 +13,6 @@ import os
 import io
 import math
 from pathlib import Path
-
-# Імпорт для полотна малювання
-try:
-    from streamlit_drawable_canvas import st_canvas
-except ImportError:
-    pass
 
 # Імпорт для тактичного аналізу (mplsoccer)
 try:
@@ -122,7 +116,6 @@ st.markdown("""
 /* Пісочниця даних */
 .sandbox-info { background: #f0eeea; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #555; margin-bottom: 12px; border-left: 3px solid #534AB7; }
 .code-block { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 14px; font-size: 12px; font-family: 'Fira Code', monospace; line-height: 1.6; white-space: pre; overflow-x: auto; margin-top: 8px; }
-.draw-hint { background: #EEEDFE; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #3C3489; margin-bottom: 10px; }
 
 /* Кнопки навігації в sidebar */
 div[data-testid="stRadio"] > div { gap: 4px; }
@@ -761,11 +754,10 @@ elif "Учні" in page:
 elif "Дошка" in page:
     st.markdown("## ✏️ Інтерактивна дошка")
 
-    tab_wb, tab_graph, tab_geo, tab_draw = st.tabs([
+    tab_wb, tab_graph, tab_geo = st.tabs([
         "🖊 Полотно + Формули", 
         "📈 Графіки функцій", 
-        "📐 Геометрія", 
-        "🎨 Малювання"
+        "📐 Геометрія"
     ])
 
     with tab_wb:
@@ -940,97 +932,6 @@ elif "Дошка" in page:
             font=dict(size=12),
         )
         st.plotly_chart(fig4, use_container_width=True)
-
-    with tab_draw:
-        st.markdown("### 🎨 Інтерактивне полотно для малювання")
-        
-        if 'st_canvas' in globals():
-            st.markdown("""
-            <div class='draw-hint'>
-            💡 <strong>Як використовувати:</strong> Малюйте мишкою або стилусом прямо на полотні.
-            Ідеально для пояснення "на льоту" — покажіть учню рішення рівняння, намалюйте графік або схему.
-            При спільному екрані учень бачить все в реальному часі.
-            </div>
-            """, unsafe_allow_html=True)
-
-            col_tools, col_canvas = st.columns([1, 3])
-
-            with col_tools:
-                st.markdown("**🛠 Інструменти**")
-                drawing_mode = st.selectbox(
-                    "Режим малювання",
-                    ["freedraw", "line", "rect", "circle", "transform"],
-                    format_func=lambda x: {
-                        "freedraw": "✏️ Олівець",
-                        "line": "📏 Лінія",
-                        "rect": "⬜ Прямокутник",
-                        "circle": "⭕ Коло",
-                        "transform": "↔️ Переміщення",
-                    }[x],
-                    label_visibility="collapsed"
-                )
-
-                st.markdown("**🎨 Колір**")
-                stroke_color = st.color_picker("Колір лінії", "#534AB7", label_visibility="collapsed")
-                fill_color_raw = st.color_picker("Колір заливки", "#EEEDFE", label_visibility="collapsed")
-
-                st.markdown("**📐 Розмір**")
-                stroke_width = st.slider("Товщина лінії", 1, 20, 3, label_visibility="collapsed")
-
-                st.markdown("**🖼 Фон**")
-                bg_option = st.radio(
-                    "Фон полотна",
-                    ["Білий", "Клітинка", "Темний"],
-                    label_visibility="collapsed"
-                )
-                bg_colors = {"Білий": "#ffffff", "Клітинка": "#f8f7f4", "Темний": "#1e1e2e"}
-                bg_color = bg_colors[bg_option]
-
-                st.markdown("---")
-                realtime_update = st.checkbox("⚡ Оновлення в реальному часі", value=True)
-
-                if st.button("🗑 Очистити полотно", use_container_width=True):
-                    st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
-
-            with col_canvas:
-                if bg_option == "Клітинка":
-                    bg_color_canvas = "#f8f7f4"
-                else:
-                    bg_color_canvas = bg_color
-
-                canvas_result = st_canvas(
-                    fill_color=fill_color_raw + "40",  # 25% прозорість
-                    stroke_width=stroke_width,
-                    stroke_color=stroke_color,
-                    background_color=bg_color_canvas,
-                    height=480,
-                    width=700,
-                    drawing_mode=drawing_mode,
-                    update_streamlit=realtime_update,
-                    key=f"canvas_{st.session_state.get('canvas_key', 0)}",
-                )
-
-                if canvas_result.image_data is not None:
-                    img_array = canvas_result.image_data
-                    if img_array.sum() > 0:
-                        from PIL import Image
-                        img_pil = Image.fromarray(img_array.astype('uint8'), 'RGBA')
-                        buf = io.BytesIO()
-                        img_pil.save(buf, format="PNG")
-                        st.download_button(
-                            label="⬇️ Завантажити зображення (PNG)",
-                            data=buf.getvalue(),
-                            file_name=f"board_{datetime.now().strftime('%H%M%S')}.png",
-                            mime="image/png",
-                            use_container_width=True,
-                        )
-
-        else:
-            st.warning("""
-            ⚠️ **Пакет `streamlit-drawable-canvas` не встановлено.**
-            Для активації інтерактивного полотна виконайте команду в терміналі:
-            `pip install streamlit-drawable-canvas`
-            """)
 
 
 # ─────────────────────────────────────────
