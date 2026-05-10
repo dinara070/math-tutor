@@ -1,8 +1,6 @@
- """
-MathTutor Pro — Платформа для репетитора
-Запуск: streamlit run math_tutor.py
-Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib
-"""
+# MathTutor Pro — Платформа для репетитора
+# Запуск: streamlit run app.py
+# Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib
 
 import streamlit as st
 import plotly.graph_objects as go
