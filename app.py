@@ -1,7 +1,7 @@
 """
 MathTutor Pro — Платформа для репетитора
 Запуск: streamlit run math_tutor.py
-Залежності: pip install streamlit plotly pandas
+Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl
 """
 
 import streamlit as st
@@ -13,6 +13,12 @@ import random
 import json
 import os
 from pathlib import Path
+
+# Імпорт для полотна малювання
+try:
+    from streamlit_drawable_canvas import st_canvas
+except ImportError:
+    st.error("Будь ласка, встановіть бібліотеку: pip install streamlit-drawable-canvas")
 
 # ─────────────────────────────────────────
 # Ініціалізація папки для завантажень
@@ -226,7 +232,7 @@ with st.sidebar:
 
     page = st.radio(
         "Навігація",
-        ["🏠  Дашборд", "👥  Учні", "✏️  Дошка", "📊  Аналітика", "📚  Бібліотека", "💰  Фінанси"],
+        ["🏠  Дашборд", "👥  Учні", "✏️  Дошка", "💻  Пісочниця", "📊  Аналітика", "📚  Бібліотека", "💰  Фінанси"],
         label_visibility="collapsed",
     )
 
@@ -602,7 +608,7 @@ elif "Учні" in page:
 elif "Дошка" in page:
     st.markdown("## ✏️ Інтерактивна дошка")
 
-    tab_wb, tab_graph, tab_geo = st.tabs(["🖊 Полотно + Формули", "📈 Графіки функцій", "📐 Геометрія"])
+    tab_wb, tab_graph, tab_geo, tab_canvas = st.tabs(["🖊 Полотно + Формули", "📈 Графіки функцій", "📐 Геометрія", "🎨 Малювання"])
 
     with tab_wb:
         st.info("💡 Введіть формулу в полі нижче або скористайтеся готовими шаблонами для пояснення учням.")
@@ -639,13 +645,6 @@ elif "Дошка" in page:
         if c3.button("∫ Інтеграл"): st.session_state.formula_input = r"\int_a^b f(x)\,dx"
         if c4.button("∑ Сума"):     st.session_state.formula_input = r"\sum_{i=1}^{n} a_i"
         if c5.button("Δ Ліміт"):   st.session_state.formula_input = r"\lim_{x \to \infty} f(x)"
-
-        st.markdown("---")
-        st.markdown("**Нотатки до уроку:**")
-        st.text_area("", height=150, placeholder="Записуйте ключові моменти уроку, пояснення, приклади...",
-                     label_visibility="collapsed")
-        if st.button("💾 Зберегти нотатки уроку"):
-            st.success("Нотатки збережено!")
 
     with tab_graph:
         st.markdown("**Графік функції**")
@@ -785,6 +784,110 @@ elif "Дошка" in page:
             font=dict(size=12),
         )
         st.plotly_chart(fig4, use_container_width=True)
+
+    with tab_canvas:
+        st.markdown("**🎨 Інтерактивне полотно**")
+        st.info("Малюй мишкою, стилусом або пальцем. Ідеально для розв'язування задач разом з учнем під час трансляції екрану.")
+        
+        col_c1, col_c2, col_c3 = st.columns([1, 1, 2])
+        stroke_width = col_c1.slider("Товщина лінії", 1, 25, 3)
+        stroke_color = col_c2.color_picker("Колір маркера", "#26215C")
+        bg_color = col_c3.color_picker("Колір фону дошки", "#ffffff")
+        
+        # Перевірка, чи встановлено бібліотеку перед викликом
+        if 'st_canvas' in globals():
+            canvas_result = st_canvas(
+                fill_color="rgba(255, 165, 0, 0.3)",
+                stroke_width=stroke_width,
+                stroke_color=stroke_color,
+                background_color=bg_color,
+                height=500,
+                drawing_mode="freedraw",
+                key="whiteboard_canvas",
+            )
+        else:
+            st.warning("Встановіть бібліотеку `streamlit-drawable-canvas` для доступу до цієї функції.")
+
+
+# ─────────────────────────────────────────
+# ── ПІСОЧНИЦЯ (DATA SANDBOX) ───────────
+# ─────────────────────────────────────────
+elif "Пісочниця" in page:
+    st.markdown("## 💻 Пісочниця даних (Data Sandbox)")
+    st.info("Завантажте датасет для практичної роботи з програмування та дата-аналітики. Можна досліджувати тактичні дані, спортивну статистику тощо.")
+
+    uploaded_dataset = st.file_uploader("📥 Завантажити CSV або Excel (.xlsx)", type=["csv", "xlsx"])
+
+    if uploaded_dataset is not None:
+        try:
+            if uploaded_dataset.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_dataset)
+            else:
+                df = pd.read_excel(uploaded_dataset)
+
+            st.success(f"✅ Датасет `{uploaded_dataset.name}` успішно завантажено!")
+
+            st.markdown("### 📋 Попередній перегляд (Dataframe)")
+            st.dataframe(df, use_container_width=True)
+
+            st.markdown("### 📊 Візуалізація даних")
+            col1, col2, col3 = st.columns(3)
+            columns = df.columns.tolist()
+            chart_type = col1.selectbox("Тип графіку", ["Діаграма розсіювання (Scatter)", "Лінійний (Line)", "Стовпчаста (Bar)"])
+            x_col = col2.selectbox("Ось X", columns)
+            y_col = col3.selectbox("Ось Y", columns)
+
+            if st.button("Побудувати графік", type="primary"):
+                if chart_type == "Діаграма розсіювання (Scatter)":
+                    fig_s = px.scatter(df, x=x_col, y=y_col, title=f"Залежність {y_col} від {x_col}")
+                elif chart_type == "Лінійний (Line)":
+                    fig_s = px.line(df, x=x_col, y=y_col, title=f"Динаміка {y_col} по {x_col}")
+                else:
+                    fig_s = px.bar(df, x=x_col, y=y_col, title=f"Розподіл {y_col} за {x_col}")
+                
+                fig_s.update_layout(plot_bgcolor="white", paper_bgcolor="white")
+                st.plotly_chart(fig_s, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Помилка читання файлу: {e}")
+            
+    else:
+        st.markdown("---")
+        st.markdown("💡 *Немає файлу під рукою? Спробуйте завантажити демо-дані.*")
+        
+        if st.button("⚽ Завантажити демо-датасет (Тактичний аналіз гри)"):
+            demo_df = pd.DataFrame({
+                "Хвилина_матчу": range(1, 91, 5),
+                "xG_Команда_А": [max(0.01, round((x/100) + random.uniform(-0.05, 0.1), 2)) for x in range(1, 91, 5)],
+                "xG_Команда_Б": [max(0.01, round((x/150) + random.uniform(-0.02, 0.08), 2)) for x in range(1, 91, 5)],
+                "Володіння_м'ячем_%": [random.randint(40, 60) for _ in range(18)],
+                "Паси_в_зоні_атаки": [random.randint(10, 50) for _ in range(18)]
+            })
+            st.session_state['demo_data'] = demo_df
+            st.rerun()
+
+    if 'demo_data' in st.session_state and uploaded_dataset is None:
+        df = st.session_state['demo_data']
+        st.markdown("### 📋 Демо-дані: Тактична статистика матчу")
+        st.dataframe(df, use_container_width=True)
+
+        st.markdown("### 📊 Візуалізація даних")
+        col1, col2, col3 = st.columns(3)
+        columns = df.columns.tolist()
+        chart_type = col1.selectbox("Тип графіку", ["Лінійний (Line)", "Діаграма розсіювання (Scatter)", "Стовпчаста (Bar)"])
+        x_col = col2.selectbox("Ось X", columns, index=0)
+        y_col = col3.selectbox("Ось Y", columns, index=1)
+
+        if st.button("Побудувати графік", type="primary"):
+            if chart_type == "Діаграма розсіювання (Scatter)":
+                fig_s = px.scatter(df, x=x_col, y=y_col, title=f"Залежність: {y_col} від {x_col}")
+            elif chart_type == "Лінійний (Line)":
+                fig_s = px.line(df, x=x_col, y=y_col, title=f"Динаміка: {y_col} по {x_col}", markers=True)
+            else:
+                fig_s = px.bar(df, x=x_col, y=y_col, title=f"Розподіл: {y_col} за {x_col}")
+
+            fig_s.update_layout(plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig_s, use_container_width=True)
 
 
 # ─────────────────────────────────────────
