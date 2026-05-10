@@ -1,6 +1,6 @@
 # MathTutor Pro — Платформа для репетитора
 # Запуск: streamlit run app.py
-# Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib
+# Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib fpdf
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -13,6 +13,7 @@ import os
 import io
 import math
 from pathlib import Path
+import base64
 
 # Імпорт для полотна малювання
 try:
@@ -27,6 +28,13 @@ try:
     HAS_MPLSOCCER = True
 except ImportError:
     HAS_MPLSOCCER = False
+
+# Імпорт для PDF-звітів
+try:
+    from fpdf import FPDF
+    HAS_FPDF = True
+except ImportError:
+    HAS_FPDF = False
 
 # ─────────────────────────────────────────
 # Ініціалізація папки для завантажень
@@ -74,12 +82,20 @@ st.markdown("""
 .lesson-name { font-weight: 500; }
 .lesson-topic{ color: #888; font-size: 11px; }
 
-/* Бейджі */
+/* Канбан-дошка */
+.kanban-col { background: #f0eeea; border-radius: 8px; padding: 12px; min-height: 300px; }
+.kanban-title { font-size: 13px; font-weight: 600; color: #555; text-transform: uppercase; margin-bottom: 12px; text-align: center; }
+.kanban-card { background: white; border-left: 4px solid #534AB7; border-radius: 6px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-size: 12px; }
+.kanban-card-student { font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+.kanban-card-task { color: #555; margin-bottom: 8px; line-height: 1.4; }
+
+/* Бейджі та Ачівки */
 .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
 .badge-green  { background:#E1F5EE; color:#085041; }
 .badge-purple { background:#EEEDFE; color:#26215C; }
 .badge-amber  { background:#FAEEDA; color:#633806; }
 .badge-red    { background:#FCEBEB; color:#791F1F; }
+.badge-gamify { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-shadow: 0px 1px 2px rgba(0,0,0,0.2); margin: 0 6px 6px 0; display: inline-block; box-shadow: 0 2px 5px rgba(255,165,0,0.3);}
 
 /* Учні */
 .student-card { background: white; border: 0.5px solid #e8e6e0; border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
@@ -138,6 +154,7 @@ def load_students():
             "notes": "Повторення звичайних дробів, підготовка до контрольної роботи.",
             "topics": {"Звичайні дроби": 80, "Десяткові дроби": 90, "Відсотки": 45, "Рівняння": 60, "Геометрія (база)": 50},
             "test_scores": [50, 55, 60, 65],
+            "achievements": ["🎯 Відмінниця", "🔥 Стрік 3 ДЗ"],
         },
         {
             "id": 2, "name": "Анастасія", "initials": "АН",
@@ -150,6 +167,7 @@ def load_students():
             "notes": "Вища математика, польська термінологія. Акцент на функції та тригонометрію.",
             "topics": {"Функції": 90, "Тригонометрія": 80, "Похідна": 75, "Інтеграли": 65, "Алгебра": 95},
             "test_scores": [70, 75, 78, 82],
+            "achievements": ["🏅 Майстер інтегралів"],
         },
         {
             "id": 3, "name": "Макар", "initials": "МА",
@@ -162,6 +180,7 @@ def load_students():
             "notes": "Основи Python. Працюємо над проєктами (Аналізатор та Шляхошукач).",
             "topics": {"Змінні": 90, "If/Else": 75, "Цикли for/while": 40, "Списки": 20, "Функції": 0},
             "test_scores": [25, 35, 45],
+            "achievements": ["💻 Перший скрипт", "⚽ Спортивний аналітик"],
         }
     ]
 
@@ -174,7 +193,7 @@ def load_schedule():
 
 def load_notifications():
     return [
-        {"icon": "📋", "style": "background:#EEEDFE;color:#534AB7", "text": "<strong>Макар</strong> надіслав код проєкту на перевірку", "time": "10 хвилин тому"},
+        {"icon": "📋", "style": "background:#EEEDFE;color:#534AB7", "text": "<strong>Макар</strong> перемістив проєкт на стадію «В роботі»", "time": "10 хвилин тому"},
         {"icon": "💬", "style": "background:#E1F5EE;color:#0F6E56", "text": "<strong>Анастасія</strong> запитує переклад терміну «Calka»", "time": "1 годину тому"},
         {"icon": "💰", "style": "background:#FAEEDA;color:#854F0B", "text": "<strong>Дарія Костур</strong> — залишився 1 оплачений урок", "time": "Вчора"},
     ]
@@ -220,8 +239,8 @@ def get_sample_datasets():
         "xG_Команда_Б": [max(0.01, round((x/150) + random.uniform(-0.02, 0.08), 2)) for x in range(1, 91, 5)],
         "Володіння_м'ячем_%": [random.randint(40, 60) for _ in range(18)],
         "Паси_в_зоні_атаки": [random.randint(10, 50) for _ in range(18)],
-        "X_координата": [random.uniform(60, 120) for _ in range(18)], # Атакувальна половина
-        "Y_координата": [random.uniform(0, 80) for _ in range(18)]    # Ширина поля
+        "X_координата": [random.uniform(60, 120) for _ in range(18)],
+        "Y_координата": [random.uniform(0, 80) for _ in range(18)]  
     })
 
     population = pd.DataFrame({
@@ -264,8 +283,15 @@ if "test_questions" not in st.session_state:
 if "hw_items" not in st.session_state:
     st.session_state.hw_items = [
         {"id": 1, "student": "Анастасія", "task": "Дослідити функцію y=x^3-3x+2", "due": "2026-05-10", "status": "В процесі"},
-        {"id": 2, "student": "Макар", "task": "Написати скрипт «Аналізатор»", "due": "2026-05-12", "status": "Здано"},
         {"id": 3, "student": "Дарія Костур", "task": "Задачі на відсотки № 15-20", "due": "2026-05-14", "status": "Не розпочато"},
+    ]
+
+# Новий стейт для Канбан-дошки
+if "kanban_tasks" not in st.session_state:
+    st.session_state.kanban_tasks = [
+        {"id": 101, "student": "Макар", "title": "Написати скрипт «Аналізатор та Шляхошукач»", "status": "Готово"},
+        {"id": 102, "student": "Макар", "title": "Проєкт по спортивній аналітиці для Олексія Борисовича", "status": "В роботі"},
+        {"id": 103, "student": "Анастасія", "title": "Калькулятор похідних на Python", "status": "Беклог"},
     ]
 
 if "sandbox_df" not in st.session_state:
@@ -359,60 +385,112 @@ if "Дашборд" in page:
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### 📋 Трекер домашніх завдань")
+    
+    # Таби для ДЗ та Канбану
+    tab_hw, tab_kanban = st.tabs(["📋 Трекер домашніх завдань", "🗂 Канбан проєктів"])
+    
+    with tab_hw:
+        with st.expander("➕ Призначити нове ДЗ"):
+            with st.form("add_hw_form"):
+                c1_hw, c2_hw, c3_hw = st.columns([2, 3, 2])
+                hw_student = c1_hw.selectbox("Учень", [s["name"] for s in st.session_state.students])
+                hw_task = c2_hw.text_input("Опис завдання", placeholder="Наприклад: Параграф 12, задачі 1-10")
+                hw_due = c3_hw.date_input("Дедлайн", value=date.today() + timedelta(days=2))
+                
+                if st.form_submit_button("Додати завдання", type="primary"):
+                    if hw_task.strip():
+                        new_id = max([hw["id"] for hw in st.session_state.hw_items] + [0]) + 1
+                        st.session_state.hw_items.append({
+                            "id": new_id,
+                            "student": hw_student,
+                            "task": hw_task,
+                            "due": hw_due.strftime("%Y-%m-%d"),
+                            "status": "Не розпочато"
+                        })
+                        st.success("✅ Завдання успішно додано!")
+                        st.rerun()
 
-    with st.expander("➕ Призначити нове ДЗ"):
-        with st.form("add_hw_form"):
-            c1_hw, c2_hw, c3_hw = st.columns([2, 3, 2])
-            hw_student = c1_hw.selectbox("Учень", [s["name"] for s in st.session_state.students])
-            hw_task = c2_hw.text_input("Опис завдання", placeholder="Наприклад: Параграф 12, задачі 1-10")
-            hw_due = c3_hw.date_input("Дедлайн", value=date.today() + timedelta(days=2))
-            
-            if st.form_submit_button("Додати завдання", type="primary"):
-                if hw_task.strip():
-                    new_id = max([hw["id"] for hw in st.session_state.hw_items] + [0]) + 1
-                    st.session_state.hw_items.append({
-                        "id": new_id,
-                        "student": hw_student,
-                        "task": hw_task,
-                        "due": hw_due.strftime("%Y-%m-%d"),
-                        "status": "Не розпочато"
-                    })
-                    st.success("✅ Завдання успішно додано!")
-                    st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        status_colors = {"Здано": "🟢", "В процесі": "🟡", "Не розпочато": "🔴"}
+        next_status = {"Не розпочато": "В процесі", "В процесі": "Здано", "Здано": "Не розпочато"}
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    status_colors = {"Здано": "🟢", "В процесі": "🟡", "Не розпочато": "🔴"}
-    next_status = {"Не розпочато": "В процесі", "В процесі": "Здано", "Здано": "Не розпочато"}
-
-    if not st.session_state.hw_items:
-        st.info("Немає активних завдань.")
-    else:
-        col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
-        col1.markdown("**Учень**")
-        col2.markdown("**Завдання**")
-        col3.markdown("**Дедлайн**")
-        col4.markdown("**Статус**")
-        col5.markdown("**Дія**")
-        st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
-
-        for i, hw in enumerate(st.session_state.hw_items):
+        if not st.session_state.hw_items:
+            st.info("Немає активних завдань.")
+        else:
             col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
-            col1.markdown(f"<div style='padding-top:8px;'>{hw['student']}</div>", unsafe_allow_html=True)
-            col2.markdown(f"<div style='padding-top:8px;'>{hw['task']}</div>", unsafe_allow_html=True)
-            col3.markdown(f"<div style='padding-top:8px;'>⏳ {hw['due']}</div>", unsafe_allow_html=True)
-            col4.markdown(f"<div style='padding-top:8px;'>{status_colors[hw['status']]} {hw['status']}</div>", unsafe_allow_html=True)
+            col1.markdown("**Учень**")
+            col2.markdown("**Завдання**")
+            col3.markdown("**Дедлайн**")
+            col4.markdown("**Статус**")
+            col5.markdown("**Дія**")
+            st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
 
-            btn_col1, btn_col2 = col5.columns([1, 1])
-            if btn_col1.button("🔄", key=f"toggle_hw_{hw['id']}", help="Змінити статус"):
-                st.session_state.hw_items[i]["status"] = next_status[hw["status"]]
-                st.rerun()
-            if btn_col2.button("❌", key=f"del_hw_{hw['id']}", help="Видалити завдання"):
-                st.session_state.hw_items = [item for item in st.session_state.hw_items if item["id"] != hw["id"]]
-                st.rerun()
-            
-            st.markdown("<hr style='margin: 0.2rem 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
+            for i, hw in enumerate(st.session_state.hw_items):
+                col1, col2, col3, col4, col5 = st.columns([2, 4, 2, 2, 1])
+                col1.markdown(f"<div style='padding-top:8px;'>{hw['student']}</div>", unsafe_allow_html=True)
+                col2.markdown(f"<div style='padding-top:8px;'>{hw['task']}</div>", unsafe_allow_html=True)
+                col3.markdown(f"<div style='padding-top:8px;'>⏳ {hw['due']}</div>", unsafe_allow_html=True)
+                col4.markdown(f"<div style='padding-top:8px;'>{status_colors[hw['status']]} {hw['status']}</div>", unsafe_allow_html=True)
 
+                btn_col1, btn_col2 = col5.columns([1, 1])
+                if btn_col1.button("🔄", key=f"toggle_hw_{hw['id']}", help="Змінити статус"):
+                    st.session_state.hw_items[i]["status"] = next_status[hw["status"]]
+                    st.rerun()
+                if btn_col2.button("❌", key=f"del_hw_{hw['id']}", help="Видалити завдання"):
+                    st.session_state.hw_items = [item for item in st.session_state.hw_items if item["id"] != hw["id"]]
+                    st.rerun()
+                
+                st.markdown("<hr style='margin: 0.2rem 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
+
+    with tab_kanban:
+        with st.expander("➕ Додати новий проєкт/задачу"):
+            with st.form("add_kanban_form"):
+                k_col1, k_col2 = st.columns([1, 2])
+                k_student = k_col1.selectbox("Виконавець", [s["name"] for s in st.session_state.students], key="k_student")
+                k_title = k_col2.text_input("Назва проєкту/завдання", placeholder="Наприклад: Зробити дашборд")
+                
+                if st.form_submit_button("Створити картку", type="primary"):
+                    if k_title.strip():
+                        new_kid = max([k["id"] for k in st.session_state.kanban_tasks] + [0]) + 1
+                        st.session_state.kanban_tasks.append({
+                            "id": new_kid,
+                            "student": k_student,
+                            "title": k_title,
+                            "status": "Беклог"
+                        })
+                        st.success("✅ Проєкт додано на дошку!")
+                        st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        kanban_statuses = ["Беклог", "В роботі", "На перевірці", "Готово"]
+        k_cols = st.columns(4)
+        
+        for idx, status in enumerate(kanban_statuses):
+            with k_cols[idx]:
+                st.markdown(f"<div class='kanban-col'><div class='kanban-title'>{status}</div>", unsafe_allow_html=True)
+                for task in st.session_state.kanban_tasks:
+                    if task["status"] == status:
+                        with st.container():
+                            st.markdown(f"""
+                            <div class='kanban-card'>
+                                <div class='kanban-card-student'>👤 {task['student']}</div>
+                                <div class='kanban-card-task'>{task['title']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            new_status = st.selectbox("Змінити етап:", kanban_statuses, index=kanban_statuses.index(status), key=f"kb_sel_{task['id']}", label_visibility="collapsed")
+                            
+                            # Кнопка видалення картки
+                            if st.button("Видалити", key=f"kb_del_{task['id']}", help="Видалити картку"):
+                                st.session_state.kanban_tasks = [t for t in st.session_state.kanban_tasks if t["id"] != task["id"]]
+                                st.rerun()
+                                
+                            if new_status != status:
+                                task["status"] = new_status
+                                st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
     st.markdown("### 📈 Прогрес учнів")
     students = st.session_state.students
     if students:
@@ -495,6 +573,7 @@ elif "Учні" in page:
                         "paid_lessons": 0, "phone": phone, "email": email, "notes": notes,
                         "topics": {"Основи": 0},
                         "test_scores": [],
+                        "achievements": [],
                     })
                     st.session_state.show_add_student = False
                     st.rerun()
@@ -553,7 +632,7 @@ elif "Учні" in page:
         if s:
             st.markdown("---")
             st.markdown(f"### Профіль — {s['name']}")
-            tab1, tab2, tab3 = st.tabs(["📌 Загальне", "📊 Прогрес", "💰 Оплата"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📌 Загальне", "📊 Прогрес", "💰 Оплата", "🏆 Досягнення"])
 
             with tab1:
                 c1, c2 = st.columns(2)
@@ -617,6 +696,27 @@ elif "Учні" in page:
                 if st.button("➕ Зарахувати оплату", key=f"pay_{s['id']}"):
                     s["paid_lessons"] += n_add
                     st.success(f"Зараховано {n_add} уроків. Разом: {s['paid_lessons']}")
+
+            with tab4:
+                st.markdown("### 🏆 Ігрові досягнення учня")
+                
+                achievements = s.get("achievements", [])
+                if achievements:
+                    badges_html = "".join([f"<div class='badge-gamify'>{b}</div>" for b in achievements])
+                    st.markdown(badges_html, unsafe_allow_html=True)
+                else:
+                    st.info("Учень поки не отримав жодної відзнаки. Час його мотивувати!")
+                
+                st.markdown("---")
+                with st.form(f"add_achievement_{s['id']}"):
+                    new_badge = st.text_input("Нагородити новим бейджем", placeholder="Наприклад: 🎯 100% за складний тест")
+                    if st.form_submit_button("Нагородити"):
+                        if new_badge.strip():
+                            if "achievements" not in s:
+                                s["achievements"] = []
+                            s["achievements"].append(new_badge.strip())
+                            st.success("Нагороду додано!")
+                            st.rerun()
 
             st.markdown("---")
             c_edit, c_del, c_close = st.columns(3)
@@ -1222,6 +1322,63 @@ elif "Аналітика" in page:
                 st.info("Немає результатів тестів")
 
         st.markdown("---")
+        
+        # ─────────────────────────────────────────
+        # Генерація PDF-звіту через FPDF
+        # ─────────────────────────────────────────
+        if HAS_FPDF:
+            st.markdown("### 🖨️ Експорт звіту")
+            
+            def create_pdf(student_data):
+                pdf = FPDF()
+                pdf.add_page()
+                
+                # УВАГА: Для коректного відображення кирилиці в реальному проекті 
+                # потрібно завантажити .ttf шрифт. Щоб код не падав, використовуємо 
+                # стандартний Arial і транслітерацію/англійську для базового прикладу, 
+                # або просто виводимо числа та базовий текст, який підтримує latin-1.
+                
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(200, 10, txt="MathTutor Pro - Student Report", ln=True, align='C')
+                
+                pdf.set_font("Arial", size=12)
+                pdf.ln(10)
+                
+                # Базова інфа (англ. щоб не було помилок кодування Unicode)
+                pdf.cell(100, 10, txt=f"Student ID: {student_data['id']}", ln=True)
+                pdf.cell(100, 10, txt=f"Lessons Total: {student_data['lessons_total']}", ln=True)
+                pdf.cell(100, 10, txt=f"Overall Progress: {student_data['progress']}%", ln=True)
+                
+                pdf.ln(5)
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(200, 10, txt="Recent Test Scores:", ln=True)
+                
+                pdf.set_font("Arial", size=12)
+                scores = student_data.get("test_scores", [])
+                if scores:
+                    scores_str = ", ".join([f"{sc}%" for sc in scores])
+                    pdf.cell(200, 10, txt=scores_str, ln=True)
+                else:
+                    pdf.cell(200, 10, txt="No tests yet.", ln=True)
+                
+                return pdf.output(dest='S').encode('latin-1')
+
+            try:
+                pdf_bytes = create_pdf(s)
+                st.download_button(
+                    label="📄 Завантажити PDF-звіт (FPDF)",
+                    data=pdf_bytes,
+                    file_name=f"report_student_{s['id']}.pdf",
+                    mime="application/pdf"
+                )
+                st.caption("ℹ️ *Примітка: Для відображення української мови в PDF потрібно підключити .ttf шрифт у налаштуваннях FPDF.*")
+            except Exception as e:
+                st.error(f"Не вдалося згенерувати PDF: {e}")
+        else:
+            st.warning("⚠️ Для генерації PDF встановіть бібліотеку: `pip install fpdf`")
+
+
+        st.markdown("---")
         st.markdown("**Порівняння прогресу всіх учнів (Динамічний вибір)**")
         
         all_topics = set()
@@ -1399,7 +1556,7 @@ elif "Бібліотека" in page:
                 for i, q in enumerate(st.session_state.test_questions):
                     if answers.get(i) == q["a"][q["correct"]]:
                         score += 1
-                pct = round(score / len(st.session_state.test_questions) * 100)
+                    pct = round(score / len(st.session_state.test_questions) * 100)
                 if pct >= 80:
                     st.success(f"🎉 Результат: {score}/{len(st.session_state.test_questions)} ({pct}%) — Відмінно!")
                 elif pct >= 60:
