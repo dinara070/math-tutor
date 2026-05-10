@@ -1,4 +1,4 @@
-"""
+ """
 MathTutor Pro — Платформа для репетитора
 Запуск: streamlit run math_tutor.py
 Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib
@@ -12,13 +12,15 @@ from datetime import datetime, date, timedelta
 import random
 import json
 import os
+import io
+import math
 from pathlib import Path
 
 # Імпорт для полотна малювання
 try:
     from streamlit_drawable_canvas import st_canvas
 except ImportError:
-    st.error("Будь ласка, встановіть бібліотеку: pip install streamlit-drawable-canvas")
+    pass
 
 # Імпорт для тактичного аналізу (mplsoccer)
 try:
@@ -104,12 +106,17 @@ st.markdown("""
 .lib-name { font-size:12px; font-weight:500; color:#1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-meta { font-size:11px; color:#aaa; margin-top:2px; }
 
+/* Пісочниця даних */
+.sandbox-info { background: #f0eeea; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #555; margin-bottom: 12px; border-left: 3px solid #534AB7; }
+.code-block { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 14px; font-size: 12px; font-family: 'Fira Code', monospace; line-height: 1.6; white-space: pre; overflow-x: auto; margin-top: 8px; }
+.draw-hint { background: #EEEDFE; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #3C3489; margin-bottom: 10px; }
+
 /* Кнопки навігації в sidebar */
 div[data-testid="stRadio"] > div { gap: 4px; }
 div[data-testid="stRadio"] label { background: transparent; border-radius: 6px; padding: 7px 12px !important; font-size: 13px; cursor: pointer; transition: background .15s; width: 100%; }
 div[data-testid="stRadio"] label:hover { background: #f0eeea; }
 
-/* Кнопки streamlit */
+/* Кнопки та інше */
 .stButton > button, .stDownloadButton > button { border-radius: 8px; font-size: 12px; border: 0.5px solid #d0cec8; }
 .stButton > button:hover, .stDownloadButton > button:hover { border-color: #534AB7; color: #534AB7; }
 div[data-testid="stExpander"] { border: 0.5px solid #e8e6e0 !important; border-radius: 10px !important; background: white; }
@@ -175,19 +182,15 @@ def load_notifications():
     ]
 
 def get_dynamic_library():
-    # Базові/Віртуальні матеріали (тести)
     items = [
         {"icon": "✅", "name": "Тест: Інтеграли", "meta": "Квіз · 15 питань", "type": "quiz", "real_file": False},
         {"icon": "✅", "name": "Тест: Рівняння", "meta": "Квіз · 20 питань", "type": "quiz", "real_file": False},
     ]
-    
-    # Динамічне читання реальних файлів з папки uploads/
     for filepath in UPLOAD_DIR.iterdir():
         if filepath.is_file():
             ext = filepath.suffix.lower().replace(".", "")
             size_kb = filepath.stat().st_size / 1024
             
-            # Визначення іконки
             if ext in ['pdf']: icon = "📄"
             elif ext in ['ppt', 'pptx']: icon = "📊"
             elif ext in ['jpg', 'png', 'jpeg']: icon = "🖼️"
@@ -197,14 +200,55 @@ def get_dynamic_library():
             else: icon = "📁"
             
             items.append({
-                "icon": icon,
-                "name": filepath.name,
+                "icon": icon, "name": filepath.name,
                 "meta": f"{ext.upper() if ext else 'FILE'} · {size_kb:.1f} KB",
-                "type": "file",
-                "real_file": True,
-                "path": filepath
+                "type": "file", "real_file": True, "path": filepath
             })
     return items
+
+def get_sample_datasets():
+    football = pd.DataFrame({
+        "Команда": ["Барселона", "Реал Мадрид", "Баварія", "Манчестер Сіті", "Ліверпуль", "ПСЖ", "Ювентус", "Аякс"],
+        "Голи_забито": [89, 85, 92, 94, 86, 80, 67, 74],
+        "Голи_пропущено": [38, 35, 28, 33, 41, 45, 39, 30],
+        "Очки": [87, 84, 82, 93, 82, 78, 70, 74],
+        "Матчів_зіграно": [38, 38, 34, 38, 38, 38, 38, 34],
+        "Перемог": [27, 26, 25, 29, 25, 24, 21, 23],
+    })
+
+    tactical = pd.DataFrame({
+        "Хвилина_матчу": range(1, 91, 5),
+        "xG_Команда_А": [max(0.01, round((x/100) + random.uniform(-0.05, 0.1), 2)) for x in range(1, 91, 5)],
+        "xG_Команда_Б": [max(0.01, round((x/150) + random.uniform(-0.02, 0.08), 2)) for x in range(1, 91, 5)],
+        "Володіння_м'ячем_%": [random.randint(40, 60) for _ in range(18)],
+        "Паси_в_зоні_атаки": [random.randint(10, 50) for _ in range(18)],
+        "X_координата": [random.uniform(60, 120) for _ in range(18)], # Атакувальна половина
+        "Y_координата": [random.uniform(0, 80) for _ in range(18)]    # Ширина поля
+    })
+
+    population = pd.DataFrame({
+        "Країна": ["Китай", "Індія", "США", "Індонезія", "Пакистан", "Бразилія", "Нігерія", "Бангладеш", "Росія", "Мексика"],
+        "Населення_млн": [1412, 1408, 334, 275, 231, 215, 218, 169, 144, 130],
+        "Площа_тис_км2": [9597, 3287, 9834, 1905, 882, 8516, 924, 148, 17125, 1964],
+        "ВВП_млрд": [17734, 3469, 25463, 1319, 376, 1920, 477, 460, 1829, 1323],
+        "Густота_нас": [147, 428, 34, 144, 261, 25, 236, 1141, 8, 66],
+    })
+
+    math_scores = pd.DataFrame({
+        "Учень": ["Аліна", "Богдан", "Вікторія", "Денис", "Євгенія", "Зоя", "Іван", "Карина", "Леонід", "Марія"],
+        "Алгебра": [85, 72, 91, 68, 95, 78, 82, 88, 74, 93],
+        "Геометрія": [78, 85, 88, 75, 90, 82, 79, 91, 80, 87],
+        "Тригонометрія": [70, 68, 85, 72, 88, 75, 76, 84, 71, 89],
+        "Похідна": [65, 60, 80, 58, 85, 70, 72, 78, 65, 82],
+        "Середній_бал": [74, 71, 86, 68, 89, 76, 77, 85, 72, 88],
+    })
+
+    return {
+        "⚽ Тактичний аналіз (Демо-дані)": tactical,
+        "⚽ Футбольна статистика (Топ-ліги)": football,
+        "📊 Успішність учнів (Математика)": math_scores,
+        "🌍 Населення країн світу": population,
+    }
 
 
 # ─────────────────────────────────────────
@@ -225,6 +269,11 @@ if "hw_items" not in st.session_state:
         {"id": 2, "student": "Макар", "task": "Написати скрипт «Аналізатор»", "due": "2026-05-12", "status": "Здано"},
         {"id": 3, "student": "Дарія Костур", "task": "Задачі на відсотки № 15-20", "due": "2026-05-14", "status": "Не розпочато"},
     ]
+
+if "sandbox_df" not in st.session_state:
+    st.session_state.sandbox_df = None
+if "sandbox_source" not in st.session_state:
+    st.session_state.sandbox_source = None
 
 
 # ─────────────────────────────────────────
@@ -255,7 +304,7 @@ with st.sidebar:
 
 
 # ─────────────────────────────────────────
-# ── ДАШБОРД ────────────────────────────
+# ── ДАШБОРД
 # ─────────────────────────────────────────
 if "Дашборд" in page:
     st.markdown("## Дашборд")
@@ -387,7 +436,7 @@ if "Дашборд" in page:
 
 
 # ─────────────────────────────────────────
-# ── УЧНІ ───────────────────────────────
+# ── УЧНІ
 # ─────────────────────────────────────────
 elif "Учні" in page:
     st.markdown("## 👥 Учні та Керування Базою")
@@ -611,12 +660,17 @@ elif "Учні" in page:
 
 
 # ─────────────────────────────────────────
-# ── ДОШКА ──────────────────────────────
+# ── ДОШКА
 # ─────────────────────────────────────────
 elif "Дошка" in page:
     st.markdown("## ✏️ Інтерактивна дошка")
 
-    tab_wb, tab_graph, tab_geo, tab_canvas = st.tabs(["🖊 Полотно + Формули", "📈 Графіки функцій", "📐 Геометрія", "🎨 Малювання"])
+    tab_wb, tab_graph, tab_geo, tab_draw = st.tabs([
+        "🖊 Полотно + Формули", 
+        "📈 Графіки функцій", 
+        "📐 Геометрія", 
+        "🎨 Малювання"
+    ])
 
     with tab_wb:
         st.info("💡 Введіть формулу в полі нижче або скористайтеся готовими шаблонами для пояснення учням.")
@@ -627,7 +681,7 @@ elif "Дошка" in page:
             ("Теорема Піфагора", "a^2 + b^2 = c^2"),
             ("Квадратне рівняння", "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}"),
             ("Звичайний дріб", "\\frac{a}{b} + \\frac{c}{d} = \\frac{ad+bc}{bd}"),
-            ("Інтеграл (Анастасія)", "\\int x^n dx = \\frac{x^{n+1}}{n+1} + C"),
+            ("Інтеграл", "\\int x^n dx = \\frac{x^{n+1}}{n+1} + C"),
         ]
         for i, (label, formula) in enumerate(templates):
             if tmpl_cols[i].button(label, key=f"tmpl_{i}", use_container_width=True):
@@ -656,7 +710,6 @@ elif "Дошка" in page:
 
     with tab_graph:
         st.markdown("**Графік функції**")
-        import math
 
         c1, c2, c3 = st.columns([3, 1, 1])
         func_input = c1.text_input("Функція f(x) =", value="x**3 - 3*x + 2", label_visibility="collapsed",
@@ -731,7 +784,6 @@ elif "Дошка" in page:
             st.markdown(f"**a² + b² = c²: {a}² + {b}² = {a**2 + b**2} = {c_hyp}²**")
 
         elif shape == "Одиничне коло":
-            import math
             theta = [i * 2 * math.pi / 100 for i in range(101)]
             fig4.add_trace(go.Scatter(x=[math.cos(t) for t in theta], y=[math.sin(t) for t in theta],
                                       mode="lines", line=dict(color="#534AB7", width=2), name="Одиничне коло"))
@@ -793,145 +845,297 @@ elif "Дошка" in page:
         )
         st.plotly_chart(fig4, use_container_width=True)
 
-    with tab_canvas:
-        st.markdown("**🎨 Інтерактивне полотно**")
-        st.info("Малюй мишкою, стилусом або пальцем. Ідеально для розв'язування задач разом з учнем під час трансляції екрану.")
+    with tab_draw:
+        st.markdown("### 🎨 Інтерактивне полотно для малювання")
         
-        col_c1, col_c2, col_c3 = st.columns([1, 1, 2])
-        stroke_width = col_c1.slider("Товщина лінії", 1, 25, 3)
-        stroke_color = col_c2.color_picker("Колір маркера", "#26215C")
-        bg_color = col_c3.color_picker("Колір фону дошки", "#ffffff")
-        
-        # Перевірка, чи встановлено бібліотеку перед викликом
         if 'st_canvas' in globals():
-            canvas_result = st_canvas(
-                fill_color="rgba(255, 165, 0, 0.3)",
-                stroke_width=stroke_width,
-                stroke_color=stroke_color,
-                background_color=bg_color,
-                height=500,
-                drawing_mode="freedraw",
-                key="whiteboard_canvas",
-            )
+            st.markdown("""
+            <div class='draw-hint'>
+            💡 <strong>Як використовувати:</strong> Малюйте мишкою або стилусом прямо на полотні.
+            Ідеально для пояснення "на льоту" — покажіть учню рішення рівняння, намалюйте графік або схему.
+            При спільному екрані учень бачить все в реальному часі.
+            </div>
+            """, unsafe_allow_html=True)
+
+            col_tools, col_canvas = st.columns([1, 3])
+
+            with col_tools:
+                st.markdown("**🛠 Інструменти**")
+                drawing_mode = st.selectbox(
+                    "Режим малювання",
+                    ["freedraw", "line", "rect", "circle", "transform"],
+                    format_func=lambda x: {
+                        "freedraw": "✏️ Олівець",
+                        "line": "📏 Лінія",
+                        "rect": "⬜ Прямокутник",
+                        "circle": "⭕ Коло",
+                        "transform": "↔️ Переміщення",
+                    }[x],
+                    label_visibility="collapsed"
+                )
+
+                st.markdown("**🎨 Колір**")
+                stroke_color = st.color_picker("Колір лінії", "#534AB7", label_visibility="collapsed")
+                fill_color_raw = st.color_picker("Колір заливки", "#EEEDFE", label_visibility="collapsed")
+
+                st.markdown("**📐 Розмір**")
+                stroke_width = st.slider("Товщина лінії", 1, 20, 3, label_visibility="collapsed")
+
+                st.markdown("**🖼 Фон**")
+                bg_option = st.radio(
+                    "Фон полотна",
+                    ["Білий", "Клітинка", "Темний"],
+                    label_visibility="collapsed"
+                )
+                bg_colors = {"Білий": "#ffffff", "Клітинка": "#f8f7f4", "Темний": "#1e1e2e"}
+                bg_color = bg_colors[bg_option]
+
+                st.markdown("---")
+                realtime_update = st.checkbox("⚡ Оновлення в реальному часі", value=True)
+
+                if st.button("🗑 Очистити полотно", use_container_width=True):
+                    st.session_state["canvas_key"] = st.session_state.get("canvas_key", 0) + 1
+
+            with col_canvas:
+                if bg_option == "Клітинка":
+                    bg_color_canvas = "#f8f7f4"
+                else:
+                    bg_color_canvas = bg_color
+
+                canvas_result = st_canvas(
+                    fill_color=fill_color_raw + "40",  # 25% прозорість
+                    stroke_width=stroke_width,
+                    stroke_color=stroke_color,
+                    background_color=bg_color_canvas,
+                    height=480,
+                    width=700,
+                    drawing_mode=drawing_mode,
+                    update_streamlit=realtime_update,
+                    key=f"canvas_{st.session_state.get('canvas_key', 0)}",
+                )
+
+                if canvas_result.image_data is not None:
+                    img_array = canvas_result.image_data
+                    if img_array.sum() > 0:
+                        from PIL import Image
+                        img_pil = Image.fromarray(img_array.astype('uint8'), 'RGBA')
+                        buf = io.BytesIO()
+                        img_pil.save(buf, format="PNG")
+                        st.download_button(
+                            label="⬇️ Завантажити зображення (PNG)",
+                            data=buf.getvalue(),
+                            file_name=f"board_{datetime.now().strftime('%H%M%S')}.png",
+                            mime="image/png",
+                            use_container_width=True,
+                        )
+
         else:
-            st.warning("Встановіть бібліотеку `streamlit-drawable-canvas` для доступу до цієї функції.")
+            st.warning("""
+            ⚠️ **Пакет `streamlit-drawable-canvas` не встановлено.**
+            Для активації інтерактивного полотна виконайте команду в терміналі:
+            `pip install streamlit-drawable-canvas`
+            """)
 
 
 # ─────────────────────────────────────────
-# ── ПІСОЧНИЦЯ (DATA SANDBOX) ───────────
+# ── ПІСОЧНИЦЯ ДАНИХ
 # ─────────────────────────────────────────
 elif "Пісочниця" in page:
     st.markdown("## 💻 Пісочниця даних (Data Sandbox)")
-    st.info("Завантажте датасет для практичної роботи з програмування та дата-аналітики. Досліджуйте тактичні дані, спортивну статистику тощо.")
+    
+    st.markdown("""
+    <div class='sandbox-info'>
+    🐍 <strong>Для учнів з програмування (Python):</strong> Завантажте реальний датасет або оберіть зразок,
+    та досліджуйте дані прямо під час заняття. Pandas, Plotly, статистика — все в одному місці.
+    </div>
+    """, unsafe_allow_html=True)
 
-    uploaded_dataset = st.file_uploader("📥 Завантажити CSV або Excel (.xlsx)", type=["csv", "xlsx"])
+    data_source_tab1, data_source_tab2 = st.tabs(["📦 Зразкові датасети", "📤 Завантажити файл"])
+    sample_datasets = get_sample_datasets()
 
-    if uploaded_dataset is not None:
-        try:
-            if uploaded_dataset.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_dataset)
+    with data_source_tab1:
+        selected_sample = st.selectbox(
+            "Оберіть датасет для аналізу:",
+            list(sample_datasets.keys()),
+            label_visibility="collapsed"
+        )
+        if st.button("📥 Завантажити датасет", type="primary"):
+            st.session_state.sandbox_df = sample_datasets[selected_sample]
+            st.session_state.sandbox_source = selected_sample
+            st.success(f"✅ Датасет завантажено: **{selected_sample}**")
+
+    with data_source_tab2:
+        uploaded_file = st.file_uploader("Завантажте CSV або Excel (.xlsx)", type=["csv", "xlsx"], label_visibility="collapsed")
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df_uploaded = pd.read_csv(uploaded_file)
+                else:
+                    df_uploaded = pd.read_excel(uploaded_file)
+                st.session_state.sandbox_df = df_uploaded
+                st.session_state.sandbox_source = uploaded_file.name
+                st.success(f"✅ Файл завантажено: **{uploaded_file.name}**")
+            except Exception as e:
+                st.error(f"Помилка читання файлу: {e}")
+
+    if st.session_state.sandbox_df is not None:
+        df = st.session_state.sandbox_df
+        source_name = st.session_state.sandbox_source
+
+        st.markdown("---")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("📊 Рядків", len(df))
+        m2.metric("📋 Стовпців", len(df.columns))
+        m3.metric("📁 Джерело", source_name[:25] + "..." if len(source_name) > 25 else source_name)
+
+        with st.expander("📄 Переглянути таблицю даних", expanded=True):
+            st.dataframe(df, use_container_width=True, height=220)
+
+        with st.expander("📈 Базова статистика (df.describe())"):
+            numeric_cols = df.select_dtypes(include='number')
+            if not numeric_cols.empty:
+                st.dataframe(numeric_cols.describe().round(2), use_container_width=True)
             else:
-                df = pd.read_excel(uploaded_dataset)
+                st.info("Числових стовпців не знайдено")
 
-            st.success(f"✅ Датасет `{uploaded_dataset.name}` успішно завантажено!")
-            st.session_state['current_df'] = df
-        except Exception as e:
-            st.error(f"Помилка читання файлу: {e}")
-            
-    else:
         st.markdown("---")
-        st.markdown("💡 *Немає файлу під рукою? Спробуйте завантажити розширені демо-дані.*")
-        
-        if st.button("⚽ Завантажити демо-датасет (Тактичний аналіз гри)"):
-            # Генерація розширеного демо-датасету з координатами
-            demo_df = pd.DataFrame({
-                "Хвилина_матчу": range(1, 91, 5),
-                "xG_Команда_А": [max(0.01, round((x/100) + random.uniform(-0.05, 0.1), 2)) for x in range(1, 91, 5)],
-                "xG_Команда_Б": [max(0.01, round((x/150) + random.uniform(-0.02, 0.08), 2)) for x in range(1, 91, 5)],
-                "Володіння_м'ячем_%": [random.randint(40, 60) for _ in range(18)],
-                "Паси_в_зоні_атаки": [random.randint(10, 50) for _ in range(18)],
-                "X_координата": [random.uniform(60, 120) for _ in range(18)], # Атакувальна половина
-                "Y_координата": [random.uniform(0, 80) for _ in range(18)]    # Ширина поля
-            })
-            st.session_state['demo_data'] = demo_df
-            st.session_state['current_df'] = demo_df
-            st.rerun()
-
-    # Якщо датасет завантажено або вибрано демо
-    if 'current_df' in st.session_state:
-        df = st.session_state['current_df']
-        
-        st.markdown("### 📋 Попередній перегляд даних")
-        st.dataframe(df, use_container_width=True)
-
         st.markdown("### 📊 Конструктор графіків")
-        col1, col2, col3 = st.columns(3)
-        columns = df.columns.tolist()
-        chart_type = col1.selectbox("Тип графіку", [
-            "Діаграма розсіювання (Scatter)", 
-            "Лінійний (Line)", 
-            "Стовпчаста (Bar)",
-            "Теплова карта (Density Heatmap)"
-        ])
-        
-        # Спробуємо підібрати дефолтні колонки для демо-даних, якщо вони є
-        def_x = columns.index("Хвилина_матчу") if "Хвилина_матчу" in columns else 0
-        def_y = columns.index("xG_Команда_А") if "xG_Команда_А" in columns else min(1, len(columns)-1)
-        
-        x_col = col2.selectbox("Ось X", columns, index=def_x)
-        y_col = col3.selectbox("Ось Y", columns, index=def_y)
 
-        if st.button("📈 Побудувати графік", type="primary"):
-            if chart_type == "Діаграма розсіювання (Scatter)":
-                fig_s = px.scatter(df, x=x_col, y=y_col, title=f"Залежність: {y_col} від {x_col}", template="simple_white")
-            elif chart_type == "Лінійний (Line)":
-                fig_s = px.line(df, x=x_col, y=y_col, title=f"Динаміка: {y_col} по {x_col}", markers=True, template="simple_white")
-            elif chart_type == "Стовпчаста (Bar)":
-                fig_s = px.bar(df, x=x_col, y=y_col, title=f"Розподіл: {y_col} за {x_col}", template="simple_white")
-            elif chart_type == "Теплова карта (Density Heatmap)":
-                fig_s = px.density_heatmap(df, x=x_col, y=y_col, title=f"Щільність подій: {y_col} за {x_col}", 
-                                           marginal_x="histogram", marginal_y="histogram", template="simple_white", color_continuous_scale="Viridis")
-            
-            st.plotly_chart(fig_s, use_container_width=True)
+        num_cols = list(df.select_dtypes(include='number').columns)
+        all_cols = list(df.columns)
 
+        if len(num_cols) == 0:
+            st.warning("У датасеті немає числових стовпців для побудови графіків.")
+        else:
+            viz_col1, viz_col2, viz_col3 = st.columns(3)
+
+            chart_type = viz_col1.selectbox(
+                "Тип графіку",
+                ["📊 Стовпчаста діаграма", "📈 Лінійний графік", "🔵 Точковий (Scatter)", "📉 Гістограма", "🔥 Теплова карта (Density Heatmap)"],
+                label_visibility="collapsed"
+            )
+
+            x_col = viz_col2.selectbox("Вісь X", all_cols, index=0, label_visibility="collapsed")
+            y_col = viz_col3.selectbox("Вісь Y", num_cols, 
+                index=min(1, len(num_cols)-1) if len(num_cols) > 1 else 0,
+                label_visibility="collapsed")
+
+            color_option = st.selectbox(
+                "Розфарбувати за стовпцем (необов'язково)",
+                ["— без розфарбування —"] + all_cols,
+                label_visibility="collapsed"
+            )
+            color_col = None if color_option == "— без розфарбування —" else color_option
+
+            try:
+                palette = ["#534AB7", "#1D9E75", "#D85A30", "#BA7517", "#2196F3", "#E91E63"]
+
+                if "Стовпчаста" in chart_type:
+                    fig_sb = px.bar(df, x=x_col, y=y_col, color=color_col, color_discrete_sequence=palette)
+                elif "Лінійний" in chart_type:
+                    fig_sb = px.line(df, x=x_col, y=y_col, color=color_col, color_discrete_sequence=palette, markers=True)
+                elif "Точковий" in chart_type:
+                    fig_sb = px.scatter(df, x=x_col, y=y_col, color=color_col, color_discrete_sequence=palette, size_max=15)
+                elif "Гістограма" in chart_type:
+                    fig_sb = px.histogram(df, x=y_col, color=color_col, color_discrete_sequence=palette, nbins=20)
+                elif "Теплова карта" in chart_type:
+                    fig_sb = px.density_heatmap(df, x=x_col, y=y_col, marginal_x="histogram", marginal_y="histogram", color_continuous_scale="Viridis")
+
+                fig_sb.update_layout(
+                    height=380, margin=dict(l=0,r=0,t=20,b=0),
+                    plot_bgcolor="white", paper_bgcolor="white",
+                    xaxis=dict(gridcolor="#f0eeea"), yaxis=dict(gridcolor="#f0eeea"),
+                    font=dict(size=12), legend=dict(font=dict(size=11)),
+                )
+                st.plotly_chart(fig_sb, use_container_width=True)
+            except Exception as e:
+                st.error(f"Помилка побудови графіку: {e}")
+
+        # Матриця кореляцій
         st.markdown("---")
-        st.markdown("### 🧮 Статистичний аналіз")
-        if st.button("Показати матрицю кореляцій"):
+        if st.button("🧮 Показати матрицю кореляцій"):
             numeric_df = df.select_dtypes(include=['float64', 'int64'])
             if not numeric_df.empty:
                 fig_corr = px.imshow(numeric_df.corr(), text_auto=True, aspect="auto", 
-                                     title="Кореляційна матриця ознак", color_continuous_scale="RdBu_r")
+                                     title="Кореляційна матриця", color_continuous_scale="RdBu_r")
                 st.plotly_chart(fig_corr, use_container_width=True)
             else:
-                st.warning("У датасеті немає числових колонок для побудови кореляції.")
+                st.warning("У датасеті немає числових колонок для кореляції.")
 
-        # Футбольна аналітика (Якщо є mplsoccer та координати)
-        st.markdown("---")
-        st.markdown("### ⚽ Футбольна тактична дошка (mplsoccer)")
-        
-        if HAS_MPLSOCCER:
-            if "X_координата" in df.columns and "Y_координата" in df.columns:
-                st.info("Візуалізація просторових даних на реальному розмірі поля (формат StatsBomb).")
-                
+        # mplsoccer
+        if "X_координата" in df.columns and "Y_координата" in df.columns:
+            st.markdown("---")
+            st.markdown("### ⚽ Футбольна тактична дошка (mplsoccer)")
+            if HAS_MPLSOCCER:
+                st.info("Візуалізація просторових даних на реальному розмірі поля (StatsBomb).")
                 pitch = Pitch(pitch_type='statsbomb', pitch_color='#22312b', line_color='#c7d5cc')
                 fig_pitch, ax = pitch.draw(figsize=(8, 5.5))
-                
-                # Додаємо точки на поле
                 pitch.scatter(df["X_координата"], df["Y_координата"], ax=ax, 
-                              color='red', edgecolors='black', s=100, label='Події (Паси/Удари)')
-                
-                # Легенда
+                              color='red', edgecolors='black', s=100, label='Події')
                 ax.legend(facecolor='white', edgecolor='none', loc='lower right')
-                
                 st.pyplot(fig_pitch)
             else:
-                st.warning("Для побудови тактичної карти потрібні колонки з назвами `X_координата` та `Y_координата`.")
+                st.error("Бібліотека `mplsoccer` та `matplotlib` не встановлена.")
+
+        # Код Python
+        st.markdown("---")
+        st.markdown("### 💻 Python код для відтворення")
+        st.markdown("*Скопіюйте цей код — саме так це робиться в Python!*")
+
+        chart_name_map = {
+            "📊 Стовпчаста діаграма": "bar",
+            "📈 Лінійний графік": "line",
+            "🔵 Точковий (Scatter)": "scatter",
+            "📉 Гістограма": "histogram",
+            "🔥 Теплова карта (Density Heatmap)": "density_heatmap"
+        }
+        chart_fn = chart_name_map.get(chart_type if 'chart_type' in dir() else "📊 Стовпчаста діаграма", "bar")
+        color_line = f', color="{color_col}"' if color_col else ""
+
+        if chart_fn == "histogram":
+            plot_line = f'fig = px.histogram(df, x="{y_col}"{color_line}, nbins=20)'
+        elif chart_fn == "scatter":
+            plot_line = f'fig = px.scatter(df, x="{x_col}", y="{y_col}"{color_line})'
+        elif chart_fn == "density_heatmap":
+            plot_line = f'fig = px.density_heatmap(df, x="{x_col}", y="{y_col}")'
         else:
-            st.error("Бібліотека `mplsoccer` не встановлена. Додайте її у requirements.txt (mplsoccer, matplotlib).")
+            plot_line = f'fig = px.{chart_fn}(df, x="{x_col}", y="{y_col}"{color_line})'
+
+        dataset_comment = f'# Датасет: {source_name}' if st.session_state.sandbox_source else "# Датасет"
+
+        python_code = f'''{dataset_comment}
+import pandas as pd
+import plotly.express as px
+
+# 1. Завантаження даних
+df = pd.read_csv("data.csv")  # або свій файл
+
+# 2. Перегляд перших рядків
+print(df.head())
+print(df.shape)       # (рядки, стовпці)
+
+# 3. Базова статистика
+print(df.describe())
+
+# 4. Побудова графіку
+{plot_line}
+fig.update_layout(title="{y_col} по {x_col}")
+fig.show()'''
+
+        st.markdown(f"<div class='code-block'>{python_code}</div>", unsafe_allow_html=True)
+
+        st.markdown("")
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Завантажити датасет як CSV",
+            data=csv_bytes,
+            file_name=f"dataset_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+        )
 
 
 # ─────────────────────────────────────────
-# ── АНАЛІТИКА ───────────────────────────
+# ── АНАЛІТИКА
 # ─────────────────────────────────────────
 elif "Аналітика" in page:
     st.markdown("## 📊 Аналітика успішності")
@@ -1073,7 +1277,7 @@ elif "Аналітика" in page:
 
 
 # ─────────────────────────────────────────
-# ── БІБЛІОТЕКА ──────────────────────────
+# ── БІБЛІОТЕКА
 # ─────────────────────────────────────────
 elif "Бібліотека" in page:
     st.markdown("## 📚 Бібліотека матеріалів")
@@ -1093,7 +1297,6 @@ elif "Бібліотека" in page:
         elif filter_type == "Квіз":
             library = [x for x in library if x.get("type") == "quiz"]
 
-        # Відображення сітки (по 3 колонки)
         for i in range(0, len(library), 3):
             cols = st.columns(3)
             for j, col in enumerate(cols):
@@ -1107,7 +1310,6 @@ elif "Бібліотека" in page:
                             <div class='lib-meta'>{item["meta"]}</div>
                         </div>""", unsafe_allow_html=True)
                         
-                        # Якщо це реальний файл — додаємо кнопку завантаження
                         if item.get("real_file"):
                             with open(item["path"], "rb") as f:
                                 st.download_button(
@@ -1123,7 +1325,6 @@ elif "Бібліотека" in page:
         st.markdown("---")
         st.markdown("**Завантажити новий матеріал:**")
         
-        # Форма для завантаження нового файлу
         with st.form("upload_form", clear_on_submit=True):
             uploaded_file = st.file_uploader("Оберіть файл", type=["pdf", "pptx", "ppt", "jpg", "png", "docx", "doc", "zip", "py", "html"])
             submitted = st.form_submit_button("Завантажити у бібліотеку")
@@ -1210,7 +1411,7 @@ elif "Бібліотека" in page:
 
 
 # ─────────────────────────────────────────
-# ── ФІНАНСИ ─────────────────────────────
+# ── ФІНАНСИ
 # ─────────────────────────────────────────
 elif "Фінанси" in page:
     st.markdown("## 💰 Фінансовий облік")
