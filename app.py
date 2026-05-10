@@ -13,7 +13,6 @@ import os
 import io
 import math
 from pathlib import Path
-import base64
 
 # Імпорт для полотна малювання
 try:
@@ -282,7 +281,7 @@ if "test_questions" not in st.session_state:
 
 if "hw_items" not in st.session_state:
     st.session_state.hw_items = [
-        {"id": 1, "student": "Анастасія", "task": "Дослідити функцію y=x^3-3x+2", "due": "2026-05-10", "status": "В процесі"},
+        {"id": 1, "student": "Анастасія", "task": r"Дослідити функцію $y = x^3 - 3x + 2$", "due": "2026-05-10", "status": "В процесі"},
         {"id": 3, "student": "Дарія Костур", "task": "Задачі на відсотки № 15-20", "due": "2026-05-14", "status": "Не розпочато"},
     ]
 
@@ -480,7 +479,6 @@ if "Дашборд" in page:
                             
                             new_status = st.selectbox("Змінити етап:", kanban_statuses, index=kanban_statuses.index(status), key=f"kb_sel_{task['id']}", label_visibility="collapsed")
                             
-                            # Кнопка видалення картки
                             if st.button("Видалити", key=f"kb_del_{task['id']}", help="Видалити картку"):
                                 st.session_state.kanban_tasks = [t for t in st.session_state.kanban_tasks if t["id"] != task["id"]]
                                 st.rerun()
@@ -1502,37 +1500,37 @@ elif "Бібліотека" in page:
         if st.button("🎲 Згенерувати тест", type="primary"):
             q_bank = {
                 "Алгебра": [
-                    {"q": "Спростіть вираз: (a+b)² - 2ab", "a": ["a²-b²", "a²+b²", "a²+2ab+b²", "2a²"], "correct": 1},
-                    {"q": "Знайдіть значення: |−5| + |3|", "a": ["2", "8", "−2", "15"], "correct": 1},
-                    {"q": "Розкладіть на множники: x²−9", "a": ["(x−3)²", "(x+3)(x−3)", "(x+9)(x−1)", "x(x−9)"], "correct": 1},
+                    {"q": "Спростіть вираз: $(a+b)^2 - 2ab$", "a": [r"$a^2 - b^2$", r"$a^2 + b^2$", r"$a^2 + 2ab + b^2$", r"$2a^2$"], "correct": 1},
+                    {"q": "Знайдіть значення: $|-5| + |3|$", "a": ["2", "8", "-2", "15"], "correct": 1},
+                    {"q": "Розкладіть на множники: $x^2 - 9$", "a": [r"$(x-3)^2$", r"$(x+3)(x-3)$", r"$(x+9)(x-1)$", r"$x(x-9)$"], "correct": 1},
                 ],
                 "Квадратні рівняння": [
-                    {"q": "Дискримінант рівняння x²−5x+6=0", "a": ["1", "25", "−24", "49"], "correct": 0},
-                    {"q": "Корені рівняння x²−5x+6=0", "a": ["2 і 3", "−2 і −3", "1 і 6", "−1 і −6"], "correct": 0},
+                    {"q": "Дискримінант рівняння $x^2 - 5x + 6 = 0$", "a": ["1", "25", "-24", "49"], "correct": 0},
+                    {"q": "Корені рівняння $x^2 - 5x + 6 = 0$", "a": ["2 і 3", "-2 і -3", "1 і 6", "-1 і -6"], "correct": 0},
                 ],
                 "Тригонометрія": [
-                    {"q": "Чому дорівнює sin(90°)?", "a": ["0", "1", "−1", "√2/2"], "correct": 1},
-                    {"q": "Основне тригонометричне тотожність:", "a": ["sin²x+cos²x=1", "sinx+cosx=1", "sinx·cosx=1", "tgx=cosx/sinx"], "correct": 0},
+                    {"q": "Чому дорівнює $\sin(90^\circ)$?", "a": ["0", "1", "-1", r"$\frac{\sqrt{2}}{2}$"], "correct": 1},
+                    {"q": "Основна тригонометрична тотожність:", "a": [r"$\sin^2 x + \cos^2 x = 1$", r"$\sin x + \cos x = 1$", r"$\sin x \cdot \cos x = 1$", r"$\text{tg } x = \frac{\cos x}{\sin x}$"], "correct": 0},
                 ],
                 "Логарифми": [
-                    {"q": "log₂(8) =", "a": ["2", "3", "4", "6"], "correct": 1},
-                    {"q": "Чому дорівнює log₁₀(100)?", "a": ["10", "1", "2", "20"], "correct": 2},
+                    {"q": r"$\log_2(8) =$ ", "a": ["2", "3", "4", "6"], "correct": 1},
+                    {"q": "Чому дорівнює $\log_{10}(100)$?", "a": ["10", "1", "2", "20"], "correct": 2},
                 ],
                 "Похідна": [
-                    {"q": "(x³)' =", "a": ["x²", "3x²", "3x", "x³"], "correct": 1},
-                    {"q": "(sin x)' =", "a": ["−sin x", "cos x", "−cos x", "sin x"], "correct": 1},
+                    {"q": "$(x^3)' =$ ", "a": [r"$x^2$", r"$3x^2$", r"$3x$", r"$x^3$"], "correct": 1},
+                    {"q": "$(\sin x)' =$ ", "a": [r"$-\sin x$", r"$\cos x$", r"$-\cos x$", r"$\sin x$"], "correct": 1},
                 ],
                 "Інтеграли": [
-                    {"q": "∫x dx =", "a": ["x²", "x²/2 + C", "2x", "x+C"], "correct": 1},
-                    {"q": "∫cos x dx =", "a": ["−sin x + C", "sin x + C", "cos x + C", "−cos x + C"], "correct": 1},
+                    {"q": r"$\int x \,dx =$ ", "a": [r"$x^2$", r"$\frac{x^2}{2} + C$", r"$2x$", r"$x + C$"], "correct": 1},
+                    {"q": r"$\int \cos x \,dx =$ ", "a": [r"$-\sin x + C$", r"$\sin x + C$", r"$\cos x + C$", r"$-\cos x + C$"], "correct": 1},
                 ],
                 "Геометрія": [
-                    {"q": "Площа кола радіуса r:", "a": ["2πr", "πr²", "πr²/2", "4πr²"], "correct": 1},
+                    {"q": "Площа кола радіуса $r$:", "a": [r"$2\pi r$", r"$\pi r^2$", r"$\frac{\pi r^2}{2}$", r"$4\pi r^2$"], "correct": 1},
                     {"q": "Сума кутів трикутника:", "a": ["90°", "270°", "360°", "180°"], "correct": 3},
                 ],
                 "Стереометрія": [
-                    {"q": "Об'єм кулі радіуса r:", "a": ["4πr³/3", "πr³", "4πr²", "2πr³"], "correct": 0},
-                    {"q": "Об'єм прямокутного паралелепіпеда:", "a": ["2(ab+bc+ca)", "abc", "a²b", "3abc"], "correct": 1},
+                    {"q": "Об'єм кулі радіуса $r$:", "a": [r"$\frac{4\pi r^3}{3}$", r"$\pi r^3$", r"$4\pi r^2$", r"$2\pi r^3$"], "correct": 0},
+                    {"q": "Об'єм прямокутного паралелепіпеда:", "a": [r"$2(ab+bc+ca)$", r"$abc$", r"$a^2b$", r"$3abc$"], "correct": 1},
                 ],
             }
             pool = q_bank.get(test_topic, q_bank["Алгебра"])
@@ -1556,7 +1554,7 @@ elif "Бібліотека" in page:
                 for i, q in enumerate(st.session_state.test_questions):
                     if answers.get(i) == q["a"][q["correct"]]:
                         score += 1
-                    pct = round(score / len(st.session_state.test_questions) * 100)
+                pct = round(score / len(st.session_state.test_questions) * 100)
                 if pct >= 80:
                     st.success(f"🎉 Результат: {score}/{len(st.session_state.test_questions)} ({pct}%) — Відмінно!")
                 elif pct >= 60:
