@@ -1,7 +1,7 @@
 """
 MathTutor Pro — Платформа для репетитора
 Запуск: streamlit run math_tutor.py
-Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl
+Залежності: pip install streamlit plotly pandas streamlit-drawable-canvas openpyxl mplsoccer matplotlib
 """
 
 import streamlit as st
@@ -19,6 +19,14 @@ try:
     from streamlit_drawable_canvas import st_canvas
 except ImportError:
     st.error("Будь ласка, встановіть бібліотеку: pip install streamlit-drawable-canvas")
+
+# Імпорт для тактичного аналізу (mplsoccer)
+try:
+    from mplsoccer import Pitch
+    import matplotlib.pyplot as plt
+    HAS_MPLSOCCER = True
+except ImportError:
+    HAS_MPLSOCCER = False
 
 # ─────────────────────────────────────────
 # Ініціалізація папки для завантажень
@@ -814,7 +822,7 @@ elif "Дошка" in page:
 # ─────────────────────────────────────────
 elif "Пісочниця" in page:
     st.markdown("## 💻 Пісочниця даних (Data Sandbox)")
-    st.info("Завантажте датасет для практичної роботи з програмування та дата-аналітики. Можна досліджувати тактичні дані, спортивну статистику тощо.")
+    st.info("Завантажте датасет для практичної роботи з програмування та дата-аналітики. Досліджуйте тактичні дані, спортивну статистику тощо.")
 
     uploaded_dataset = st.file_uploader("📥 Завантажити CSV або Excel (.xlsx)", type=["csv", "xlsx"])
 
@@ -826,68 +834,100 @@ elif "Пісочниця" in page:
                 df = pd.read_excel(uploaded_dataset)
 
             st.success(f"✅ Датасет `{uploaded_dataset.name}` успішно завантажено!")
-
-            st.markdown("### 📋 Попередній перегляд (Dataframe)")
-            st.dataframe(df, use_container_width=True)
-
-            st.markdown("### 📊 Візуалізація даних")
-            col1, col2, col3 = st.columns(3)
-            columns = df.columns.tolist()
-            chart_type = col1.selectbox("Тип графіку", ["Діаграма розсіювання (Scatter)", "Лінійний (Line)", "Стовпчаста (Bar)"])
-            x_col = col2.selectbox("Ось X", columns)
-            y_col = col3.selectbox("Ось Y", columns)
-
-            if st.button("Побудувати графік", type="primary"):
-                if chart_type == "Діаграма розсіювання (Scatter)":
-                    fig_s = px.scatter(df, x=x_col, y=y_col, title=f"Залежність {y_col} від {x_col}")
-                elif chart_type == "Лінійний (Line)":
-                    fig_s = px.line(df, x=x_col, y=y_col, title=f"Динаміка {y_col} по {x_col}")
-                else:
-                    fig_s = px.bar(df, x=x_col, y=y_col, title=f"Розподіл {y_col} за {x_col}")
-                
-                fig_s.update_layout(plot_bgcolor="white", paper_bgcolor="white")
-                st.plotly_chart(fig_s, use_container_width=True)
-
+            st.session_state['current_df'] = df
         except Exception as e:
             st.error(f"Помилка читання файлу: {e}")
             
     else:
         st.markdown("---")
-        st.markdown("💡 *Немає файлу під рукою? Спробуйте завантажити демо-дані.*")
+        st.markdown("💡 *Немає файлу під рукою? Спробуйте завантажити розширені демо-дані.*")
         
         if st.button("⚽ Завантажити демо-датасет (Тактичний аналіз гри)"):
+            # Генерація розширеного демо-датасету з координатами
             demo_df = pd.DataFrame({
                 "Хвилина_матчу": range(1, 91, 5),
                 "xG_Команда_А": [max(0.01, round((x/100) + random.uniform(-0.05, 0.1), 2)) for x in range(1, 91, 5)],
                 "xG_Команда_Б": [max(0.01, round((x/150) + random.uniform(-0.02, 0.08), 2)) for x in range(1, 91, 5)],
                 "Володіння_м'ячем_%": [random.randint(40, 60) for _ in range(18)],
-                "Паси_в_зоні_атаки": [random.randint(10, 50) for _ in range(18)]
+                "Паси_в_зоні_атаки": [random.randint(10, 50) for _ in range(18)],
+                "X_координата": [random.uniform(60, 120) for _ in range(18)], # Атакувальна половина
+                "Y_координата": [random.uniform(0, 80) for _ in range(18)]    # Ширина поля
             })
             st.session_state['demo_data'] = demo_df
+            st.session_state['current_df'] = demo_df
             st.rerun()
 
-    if 'demo_data' in st.session_state and uploaded_dataset is None:
-        df = st.session_state['demo_data']
-        st.markdown("### 📋 Демо-дані: Тактична статистика матчу")
+    # Якщо датасет завантажено або вибрано демо
+    if 'current_df' in st.session_state:
+        df = st.session_state['current_df']
+        
+        st.markdown("### 📋 Попередній перегляд даних")
         st.dataframe(df, use_container_width=True)
 
-        st.markdown("### 📊 Візуалізація даних")
+        st.markdown("### 📊 Конструктор графіків")
         col1, col2, col3 = st.columns(3)
         columns = df.columns.tolist()
-        chart_type = col1.selectbox("Тип графіку", ["Лінійний (Line)", "Діаграма розсіювання (Scatter)", "Стовпчаста (Bar)"])
-        x_col = col2.selectbox("Ось X", columns, index=0)
-        y_col = col3.selectbox("Ось Y", columns, index=1)
+        chart_type = col1.selectbox("Тип графіку", [
+            "Діаграма розсіювання (Scatter)", 
+            "Лінійний (Line)", 
+            "Стовпчаста (Bar)",
+            "Теплова карта (Density Heatmap)"
+        ])
+        
+        # Спробуємо підібрати дефолтні колонки для демо-даних, якщо вони є
+        def_x = columns.index("Хвилина_матчу") if "Хвилина_матчу" in columns else 0
+        def_y = columns.index("xG_Команда_А") if "xG_Команда_А" in columns else min(1, len(columns)-1)
+        
+        x_col = col2.selectbox("Ось X", columns, index=def_x)
+        y_col = col3.selectbox("Ось Y", columns, index=def_y)
 
-        if st.button("Побудувати графік", type="primary"):
+        if st.button("📈 Побудувати графік", type="primary"):
             if chart_type == "Діаграма розсіювання (Scatter)":
-                fig_s = px.scatter(df, x=x_col, y=y_col, title=f"Залежність: {y_col} від {x_col}")
+                fig_s = px.scatter(df, x=x_col, y=y_col, title=f"Залежність: {y_col} від {x_col}", template="simple_white")
             elif chart_type == "Лінійний (Line)":
-                fig_s = px.line(df, x=x_col, y=y_col, title=f"Динаміка: {y_col} по {x_col}", markers=True)
-            else:
-                fig_s = px.bar(df, x=x_col, y=y_col, title=f"Розподіл: {y_col} за {x_col}")
-
-            fig_s.update_layout(plot_bgcolor="white", paper_bgcolor="white")
+                fig_s = px.line(df, x=x_col, y=y_col, title=f"Динаміка: {y_col} по {x_col}", markers=True, template="simple_white")
+            elif chart_type == "Стовпчаста (Bar)":
+                fig_s = px.bar(df, x=x_col, y=y_col, title=f"Розподіл: {y_col} за {x_col}", template="simple_white")
+            elif chart_type == "Теплова карта (Density Heatmap)":
+                fig_s = px.density_heatmap(df, x=x_col, y=y_col, title=f"Щільність подій: {y_col} за {x_col}", 
+                                           marginal_x="histogram", marginal_y="histogram", template="simple_white", color_continuous_scale="Viridis")
+            
             st.plotly_chart(fig_s, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### 🧮 Статистичний аналіз")
+        if st.button("Показати матрицю кореляцій"):
+            numeric_df = df.select_dtypes(include=['float64', 'int64'])
+            if not numeric_df.empty:
+                fig_corr = px.imshow(numeric_df.corr(), text_auto=True, aspect="auto", 
+                                     title="Кореляційна матриця ознак", color_continuous_scale="RdBu_r")
+                st.plotly_chart(fig_corr, use_container_width=True)
+            else:
+                st.warning("У датасеті немає числових колонок для побудови кореляції.")
+
+        # Футбольна аналітика (Якщо є mplsoccer та координати)
+        st.markdown("---")
+        st.markdown("### ⚽ Футбольна тактична дошка (mplsoccer)")
+        
+        if HAS_MPLSOCCER:
+            if "X_координата" in df.columns and "Y_координата" in df.columns:
+                st.info("Візуалізація просторових даних на реальному розмірі поля (формат StatsBomb).")
+                
+                pitch = Pitch(pitch_type='statsbomb', pitch_color='#22312b', line_color='#c7d5cc')
+                fig_pitch, ax = pitch.draw(figsize=(8, 5.5))
+                
+                # Додаємо точки на поле
+                pitch.scatter(df["X_координата"], df["Y_координата"], ax=ax, 
+                              color='red', edgecolors='black', s=100, label='Події (Паси/Удари)')
+                
+                # Легенда
+                ax.legend(facecolor='white', edgecolor='none', loc='lower right')
+                
+                st.pyplot(fig_pitch)
+            else:
+                st.warning("Для побудови тактичної карти потрібні колонки з назвами `X_координата` та `Y_координата`.")
+        else:
+            st.error("Бібліотека `mplsoccer` не встановлена. Додайте її у requirements.txt (mplsoccer, matplotlib).")
 
 
 # ─────────────────────────────────────────
